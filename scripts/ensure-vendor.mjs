@@ -76,10 +76,16 @@ for (const t of targets) {
     // board-core now has runtime deps (@noble/curves, @noble/hashes for membership
     // receipts). Webpack resolves them relative to the vendored source, so they
     // must exist next to it; the symlinked local checkout usually has them already.
+    //
+    // `--legacy-peer-deps` is required: npm 10 (bundled with Node 22, which the
+    // runners use) crashes with "Cannot read properties of null (reading
+    // 'edgesOut')" while resolving peers for board-core's devDependencies
+    // (vitest) even under `--omit=dev`. Skipping peer resolution avoids the
+    // arborist bug; board-core's only runtime deps have no peers of their own.
     const core = join(dir, 'packages', 'board-core')
     if (!existsSync(join(core, 'node_modules', '@noble'))) {
       console.log('redhaven: installing @fairhaven/board-core dependencies')
-      execSync('npm install --no-audit --no-fund --no-package-lock --ignore-scripts --omit=dev', { cwd: core, stdio: 'inherit' })
+      execSync('npm install --no-audit --no-fund --no-package-lock --ignore-scripts --omit=dev --legacy-peer-deps', { cwd: core, stdio: 'inherit' })
     }
   }
 }
