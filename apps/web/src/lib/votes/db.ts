@@ -140,6 +140,12 @@ export const voteDb = {
     await tx(m.db, 'kv', 'readwrite', (s) => { s.put(value, key) })
   },
 
+  async kvDelete(key: string): Promise<void> {
+    const m = await openDb()
+    if (m.kind === 'memory') { m.kv.delete(key); return }
+    await tx(m.db, 'kv', 'readwrite', (s) => { s.delete(key) })
+  },
+
   /** Wipe everything (prefs → "clear local data"). */
   async clearAll(): Promise<void> {
     const m = await openDb()

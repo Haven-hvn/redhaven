@@ -42,7 +42,7 @@ import { arkivStore, watchEntities } from '@/lib/arkiv'
 import { liveBoardBySlug } from '@/lib/subreddit'
 import { membership } from '@/lib/evm'
 import { clockNow, verifyAuthors } from '@/lib/receipt'
-import { hasUnlocked, openSealedText, parseGateJson, unlock, type WalletClientLike } from '@/lib/aol'
+import { hasUnlocked, openSealedText, parseGateJson, restoreVetKey, unlock, type WalletClientLike } from '@/lib/aol'
 import { persistedCount } from '@/lib/persist'
 import { useSession } from '@/store/session'
 
@@ -275,8 +275,15 @@ export function useMyMembership(gate: BoardGate | undefined) {
 
 export function useUnlock(gate: BoardGate | undefined) {
   const { data: walletClient } = useWalletClient()
+  const { address } = useAccount()
   const bump = useSession((s) => s.bumpUnlock)
   const version = useSession((s) => s.unlockVersion)
+  // Reload path: bring a wrapped unlock for this gate+epoch back into
+  // memory — no wallet signature, no Haven-AOL call.
+  useEffect(() => {
+    if (!gate || !address || hasUnlocked(gate, currentEpoch())) return
+    void restoreVetKey(gate, currentEpoch(), address).then((ok) => { if (ok) bump() })
+  }, [gate, address, bump])
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const epoch = currentEpoch()
@@ -307,6 +314,8 @@ export type OpenState = { state: 'clear' | 'open'; text: string } | { state: 'lo
 /** Opens one record's text lazily: clear → as is; sealed → after the epoch key is on this device. */
 export function useOpenText(rec: ThreadRecord | PostRecord | undefined, gate: BoardGate | undefined): OpenState {
   const version = useSession((s) => s.unlockVersion)
+  const bump = useSession((s) => s.bumpUnlock)
+  const { address } = useAccount()
   const [st, setSt] = useState<OpenState>({ state: 'locked' })
   useEffect(() => {
     let cancelled = false
@@ -318,7 +327,12 @@ export function useOpenText(rec: ThreadRecord | PostRecord | undefined, gate: Bo
       const g = parseGateJson(gateJson)
       if (!g) return setSt({ state: 'failed', reason: 'unreadable gate' })
       if (g.version !== 3 || g.epoch === undefined) return setSt({ state: 'foreign', reason: `sealed with protocol v${g.version}` })
-      if (!gate || !hasUnlocked(g.gate, g.epoch)) return setSt({ state: 'locked', epoch: g.epoch })
+      if (!gate || !hasUnlocked(g.gate, g.epoch)) {
+        // Maybe this device unlocked it in an earlier session: restore the
+        // wrapped key (no signature, no canister call), then re-run via bump.
+        if (address) void restoreVetKey(g.gate, g.epoch, address).then((ok) => { if (ok && !cancelled) bump() })
+        return setSt({ state: 'locked', epoch: g.epoch })
+      }
       setSt({ state: 'unlocking' })
       try {
         const text = await openSealedText(rec.payload)

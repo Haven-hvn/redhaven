@@ -12,7 +12,7 @@ import { voteDb, type StoredSession } from '@/lib/votes/db'
 import { revokeSession } from '@/lib/votes/sessions'
 import { forgetReceipts } from '@/lib/receipt'
 import { forgetWrapKey } from '@/lib/votes/keystore'
-import { forgetKeys } from '@/lib/aol'
+import { forgetKeys, forgetUnlockedKeys } from '@/lib/aol'
 import { clearOpened } from '@/lib/media'
 import { shortAddress } from '@/lib/format'
 import { env } from '@/lib/env'
@@ -78,6 +78,8 @@ export default function PrefsPage() {
         <h2>membership receipts</h2>
         <p className="muted small">Posting or voting in a subreddit needs one Haven-AOL receipt per 30 days: your wallet signs once, the canister checks your balance and signs the receipt, and every post and vote carries it so other readers verify you offline. Nobody checks your balance over an RPC.</p>
         <p><a href="#" onClick={(e) => { e.preventDefault(); forgetReceipts(); reload() }}>forget stored receipts</a> <span className="muted small">(your next post or vote first looks for the receipt inside your earlier posts on Arkiv — no signature, no Haven-AOL call — and only mints a new one if none is there)</span></p>
+        <p className="muted small">Unlocked gates stay unlocked on this device across reloads: the epoch key is stored encrypted in this browser, bound to the wallet that unlocked it, so sealed posts reopen with no signature and no Haven-AOL call. Anyone who can run this browser profile as you can open that content until you forget it.</p>
+        <p><a href="#" onClick={(e) => { e.preventDefault(); void forgetUnlockedKeys().then(() => location.reload()) }}>forget unlocked gates on this device</a></p>
 
         <h2>vote sessions</h2>
         <p className="muted small">A session lets this browser sign votes for one subreddit without asking your wallet each time; it embeds your receipt and expires with it. Keys are stored encrypted with a non-extractable browser key. Revoking one here deletes it; a new vote will ask for a fresh signature.</p>

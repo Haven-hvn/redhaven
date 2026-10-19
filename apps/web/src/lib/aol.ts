@@ -9,6 +9,8 @@
 
 import { CHAIN_VARIANTS, decodeTextPlain, encodeTextPlain, freshAesKey, fromBase64, gateCidForText, openAny, sealFramed, sha256Hex, toBase64, type BoardGate, type BoardPayload, type ChainVariant } from '@fairhaven/board-core'
 import { env } from './env'
+import { voteDb } from './votes/db'
+import { unwrapSecret, wrapSecret } from './votes/keystore'
 
 export interface WalletClientLike {
   account: { address: string }
@@ -39,7 +41,7 @@ export function parseGateJson(json: string): ParsedGate | undefined {
   }
 }
 
-// ── VetKey cache (memory only; cleared on disconnect) ──────────────────────
+// ── VetKey cache (in memory; wrapped copies persist per device, below) ──
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type VetKey = any
 const vetKeys = new Map<string, VetKey>()
@@ -54,6 +56,74 @@ export function hasUnlocked(gate: BoardGate, epoch: number): boolean {
 
 export function forgetKeys(): void {
   vetKeys.clear()
+}
+
+// ── Wrapped vetKey persistence (survives reload, on this device only) ──
+// The serialized key is AES-GCM-wrapped with the vote layer's
+// non-extractable key before it touches IndexedDB, and bound to the
+// wallet that unlocked it: a different account on the same browser does
+// not inherit the unlock. Plaintext never reaches storage.
+
+interface StoredVetKey {
+  wrapped: Uint8Array
+  iv: Uint8Array
+  holder: string
+}
+
+const VETKEY_INDEX = 'vetkey:index'
+const vetKeyStoreId = (gate: BoardGate, epoch: number): string => `vetkey:${cacheKey(gate, epoch)}`
+
+export async function storeVetKeyBytes(gate: BoardGate, epoch: number, holder: string, bytes: Uint8Array): Promise<void> {
+  const { wrapped, iv } = await wrapSecret(bytes)
+  const id = vetKeyStoreId(gate, epoch)
+  await voteDb.kvSet(id, { wrapped, iv, holder: holder.toLowerCase() } satisfies StoredVetKey)
+  const index = (await voteDb.kvGet<string[]>(VETKEY_INDEX)) ?? []
+  if (!index.includes(id)) await voteDb.kvSet(VETKEY_INDEX, [...index, id])
+}
+
+export async function loadVetKeyBytes(gate: BoardGate, epoch: number, holder: string): Promise<Uint8Array | undefined> {
+  const s = await voteDb.kvGet<StoredVetKey>(vetKeyStoreId(gate, epoch))
+  if (!s || s.holder !== holder.toLowerCase()) return undefined
+  try {
+    return await unwrapSecret(s.wrapped, s.iv)
+  } catch {
+    return undefined
+  }
+}
+
+export async function forgetStoredVetKeys(): Promise<void> {
+  const index = (await voteDb.kvGet<string[]>(VETKEY_INDEX)) ?? []
+  for (const id of index) await voteDb.kvDelete(id)
+  await voteDb.kvDelete(VETKEY_INDEX)
+}
+
+/** Forget every unlock on this device: in-memory and wrapped copies. */
+export async function forgetUnlockedKeys(): Promise<void> {
+  forgetKeys()
+  await forgetStoredVetKeys()
+}
+
+const restoring = new Map<string, Promise<boolean>>()
+
+/** Bring a persisted unlock back into memory. True when the gate+epoch is unlocked afterwards. */
+export function restoreVetKey(gate: BoardGate, epoch: number, holder: string): Promise<boolean> {
+  const ck = cacheKey(gate, epoch)
+  if (vetKeys.has(ck)) return Promise.resolve(true)
+  const existing = restoring.get(ck)
+  if (existing) return existing
+  const p = (async () => {
+    const bytes = await loadVetKeyBytes(gate, epoch, holder).catch(() => undefined)
+    if (!bytes) return false
+    try {
+      const vetkeys = await import('@icp-sdk/vetkeys')
+      vetKeys.set(ck, vetkeys.VetKey.deserialize(bytes))
+      return true
+    } catch {
+      return false
+    }
+  })().finally(() => restoring.delete(ck))
+  restoring.set(ck, p)
+  return p
 }
 
 // ── Canister plumbing ──────────────────────────────────────────────────────
@@ -155,6 +225,8 @@ export async function unlock(wallet: WalletClientLike, gate: BoardGate, epoch: n
   const derivationInput = await sdk.computeDerivationInputV3(gate.chain, gate.tokenAddress, gate.threshold, epoch)
   const vetKey = sdk.recoverVetKey(new Uint8Array(raw.ok.encrypted_key), secretKey, new Uint8Array(raw.ok.verification_key), derivationInput)
   vetKeys.set(cacheKey(gate, epoch), vetKey)
+  // Persist wrapped so a reload needs neither signature nor canister call.
+  void storeVetKeyBytes(gate, epoch, address, vetKey.serialize()).catch(() => undefined)
   onProgress?.(null)
 }
 
