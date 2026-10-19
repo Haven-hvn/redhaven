@@ -18,6 +18,8 @@ export interface ListingProps {
   sort: ListingSort
   page: number
   clock: BlockClock | undefined
+  /** Block the index was read at; receipt verification (usePageHydration) falls back without it. */
+  currentBlock?: number
   hrefForPage: (p: number) => string
   showSubreddit?: boolean
   truncated?: boolean
@@ -36,13 +38,15 @@ export function Listing(p: ListingProps) {
   const pg = pageSlice(ranked, p.page)
   const items = pg.items.map((i) => ({ thread: i.thread, sub: p.subFor(i.thread), folded: i.folded }))
   const hydration = usePageHydration(items, `${p.sort}:${pg.page}:${items.map((i) => i.thread.key).join(',')}`, p.currentBlock)
-  const shown = hydration.data ?? items.map((i) => ({ ...i, thread: i.thread }))
+  // Hydrated items keep the thread/sub shape only; fold lives on the ranked item.
+  const foldedByKey = new Map(items.map((i) => [i.thread.key, i.folded]))
+  const shown = (hydration.data ?? items).map((i) => ({ ...i, folded: foldedByKey.get(i.thread.key)! }))
   const { hidden, showStubs } = useHidden(shown.map((i) => i.thread))
   if (p.folded.length === 0) return <p className="empty">{p.emptyCopy}</p>
   return (
     <div className="sitetable linklisting">
       {shown.map((i, n) => {
-        const folded = items.find((x) => x.thread.key === i.thread.key)?.folded ?? (i as { folded: FoldedThread }).folded
+        const folded = i.folded
         const h = hidden.get(i.thread.key)
         return <Thing key={i.thread.key} rank={(pg.page - 1) * 25 + n + 1} thread={i.thread} folded={folded} sub={i.sub} clock={p.clock} {...(p.showSubreddit ? { showSubreddit: true } : {})} {...(h ? { hidden: h } : {})} showStubs={showStubs} />
       })}

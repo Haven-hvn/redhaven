@@ -44,7 +44,7 @@ export function MediaView({ thread, media }: { thread: ThreadRecord; media: Medi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locator, version])
 
-  if (st.s === 'open') return <Opened media={st.media} kind={kind} name={media.name} size={media.size} />
+  if (st.s === 'open') return <Opened media={st.media} kind={kind} {...(media.name !== undefined ? { name: media.name } : {})} size={media.size} />
   if (foreign) return <FrostText sealedBytes={Math.min(media.size, 4096)} state="foreign" gate={thread.gate} reason={`protocol v${gate?.version ?? '?'}`} foreignHref={foreignHref(thread)} />
   if (st.s === 'failed') return <FrostText sealedBytes={2048} state="failed" gate={thread.gate} reason={st.reason} />
   if (st.s === 'busy') {

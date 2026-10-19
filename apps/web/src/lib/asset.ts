@@ -19,15 +19,17 @@ import { env } from './env'
 import { tokenIdentity } from './evm'
 
 export interface AssetInfo {
-  name?: string
-  symbol?: string
-  description?: string
-  image?: string
-  homepage?: string
-  twitter?: string
-  priceUsd?: number
-  marketCapUsd?: number
-  holders?: number
+  // `| undefined` is deliberate: parsers build these with conditional spreads
+  // whose values are `string | undefined` (exactOptionalPropertyTypes).
+  name?: string | undefined
+  symbol?: string | undefined
+  description?: string | undefined
+  image?: string | undefined
+  homepage?: string | undefined
+  twitter?: string | undefined
+  priceUsd?: number | undefined
+  marketCapUsd?: number | undefined
+  holders?: number | undefined
   source: 'coingecko' | 'coingecko-nft' | 'contract-uri' | 'chain'
 }
 

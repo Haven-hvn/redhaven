@@ -19,7 +19,7 @@
     "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./src/*"],
-      "haven-aol": ["../../vendor/haven-aol/packages/typescript/src/index.ts"],
+      "haven-aol": ["../../vendor/haven-aol/packages/typescript/dist/index.d.ts"],
       "@fairhaven/board-core": ["../../vendor/fairhaven/packages/board-core/src/index.ts"],
       "@redhaven/vote-core": ["../../packages/vote-core/src/index.ts"],
       "@redhaven/vote-core/canister": ["../../packages/vote-core/src/canister.ts"]

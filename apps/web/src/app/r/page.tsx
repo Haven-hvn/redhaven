@@ -65,6 +65,7 @@ function Subreddit() {
           sort={sort}
           page={page}
           clock={clockFrom(currentBlock)}
+          {...(currentBlock !== undefined ? { currentBlock } : {})}
           hrefForPage={(p) => subredditPath(sr.ref.slug, sort, p)}
           {...(index.data.truncated ? { truncated: true, onMore: () => void loadMore() } : {})}
           emptyCopy={`r/${sr.ref.slug} has no live submissions. Holders of the gate token can submit the first.`}

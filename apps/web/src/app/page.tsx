@@ -57,6 +57,7 @@ function Front() {
           sort={sort}
           page={page}
           clock={clockFrom(currentBlock)}
+          {...(currentBlock !== undefined ? { currentBlock } : {})}
           hrefForPage={(p) => frontpagePath(sort, p)}
           showSubreddit
           {...(index.data.truncated ? { truncated: true, onMore: () => void loadMore() } : {})}

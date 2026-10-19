@@ -154,7 +154,7 @@ async function pinMedia(bytes: Uint8Array, onProgress?: ProgressFn): Promise<str
   const { privateKeyToAccount, generatePrivateKey } = await import('viem/accounts')
   const synapse = Synapse.create({ account: privateKeyToAccount(generatePrivateKey()), source: 'redhaven-web', withCDN: env.synapseEnableCdn })
   onProgress?.({ stage: 'pinning', uploaded: 0, total: bytes.length })
-  const result = await synapse.storage.upload(bytes, { withCDN: env.synapseEnableCdn } as never)
+  const result = await synapse.storage.upload(bytes)
   onProgress?.({ stage: 'pinning', uploaded: bytes.length, total: bytes.length })
   return String(result.pieceCid)
 }

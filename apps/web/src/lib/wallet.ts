@@ -26,7 +26,9 @@ export const wagmiConfig = wagmiAdapter.wagmiConfig
 /** Shared modal (null when no WalletConnect project id is configured). */
 export const modal = env.walletConnectProjectId
   ? createAppKit({
-      adapters: [wagmiAdapter],
+      // WagmiAdapter's `namespace` is typed optional while ChainAdapter requires
+      // it (exactOptionalPropertyTypes); the runtime value is always set.
+      adapters: [wagmiAdapter as never],
       projectId: env.walletConnectProjectId,
       networks,
       metadata: { name: 'redhaven', description: 'Token-gated boards on the Haven protocol, the 2008 way.', url: env.appUrl, icons: [] },

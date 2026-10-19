@@ -8,6 +8,7 @@
  * any later version never mix.
  */
 
+import type { DataPayload, JoinRoomConfig } from 'trystero/nostr'
 import { ROOM_APP_ID, ROOM_PREFIX, sha256Hex } from '@redhaven/vote-core'
 import { env } from '../env'
 
@@ -34,23 +35,25 @@ function rtcConfig(): RTCConfiguration {
 export async function joinGateRoom(gate: string): Promise<RoomHandle> {
   const { joinRoom } = await import('trystero/nostr')
   const roomId = roomIdFor(gate)
-  const config: Record<string, unknown> = { appId: ROOM_APP_ID, rtcConfig: rtcConfig() }
-  if (env.nostrRelays.length > 0) config.relayUrls = env.nostrRelays
-  const room = joinRoom(config as never, roomId)
-  const [send, receive] = room.makeAction<unknown>('m')
+  const config: JoinRoomConfig = { appId: ROOM_APP_ID, rtcConfig: rtcConfig() }
+  // Trystero 0.26 names relay URLs `relayConfig.urls` (top-level `relayUrls` was the pre-0.26 shape).
+  if (env.nostrRelays.length > 0) config.relayConfig = { urls: env.nostrRelays }
+  const room = joinRoom(config, roomId)
+  // 0.26: makeAction returns one object with `send` and an assignable `onMessage`, not a [send, receive] tuple.
+  const action = room.makeAction<DataPayload>('m')
   return {
     roomId,
     send(msg, to) {
-      void send(msg as never, to as never)
+      void action.send(msg as DataPayload, to !== undefined ? { target: to } : undefined)
     },
     onMessage(cb) {
-      receive((data, peerId) => cb(data, String(peerId)))
+      action.onMessage = (data, context) => cb(data, String(context.peerId))
     },
     onPeerJoin(cb) {
-      room.onPeerJoin((id) => cb(String(id)))
+      room.onPeerJoin = (id) => cb(String(id))
     },
     onPeerLeave(cb) {
-      room.onPeerLeave((id) => cb(String(id)))
+      room.onPeerLeave = (id) => cb(String(id))
     },
     peers() {
       return Object.keys(room.getPeers())

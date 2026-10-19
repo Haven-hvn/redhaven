@@ -108,7 +108,7 @@ async function fetchSealed(piece: string, declared: number | undefined, onPhase:
   const synapse = Synapse.create({ account: privateKeyToAccount(generatePrivateKey()), source: 'redhaven-web', withCDN: env.synapseEnableCdn })
   onPhase({ s: 'fetching', received: 0, ...(declared ? { total: declared } : {}) })
   if (signal.aborted) throw new DOMException('cancelled', 'AbortError')
-  const bytes = new Uint8Array(await synapse.storage.download(piece, { withCDN: env.synapseEnableCdn } as never))
+  const bytes = new Uint8Array(await synapse.storage.download({ pieceCid: piece, withCDN: env.synapseEnableCdn }))
   if (signal.aborted) throw new DOMException('cancelled', 'AbortError')
   onPhase({ s: 'fetching', received: bytes.length, total: declared ?? bytes.length })
   return bytes
