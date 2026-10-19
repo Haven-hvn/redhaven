@@ -1,6 +1,6 @@
 # redhaven
 
-A Haven protocol client that looks and works like reddit did in 2008–2010: subreddits are
+A Haven protocol client where subreddits are
 token gates, submissions and comments are Arkiv entities every Haven app can read, and
 votes are an off-chain layer exchanged between redhaven readers over WebRTC. No backend.
 
