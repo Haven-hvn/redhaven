@@ -15,7 +15,7 @@ jobs:
   vote-core:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: pnpm via corepack
         run: corepack enable && corepack prepare pnpm@11 --activate
       - name: Install (workspace + packages)
@@ -38,7 +38,7 @@ jobs:
       FAIRHAVEN_REPO_URL: ${{ vars.FAIRHAVEN_REPO_URL }}
       REDHAVEN_VENDOR_STRICT: '1'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Require FAIRHAVEN_REPO_URL
         run: |
           if [ -z "$FAIRHAVEN_REPO_URL" ]; then
