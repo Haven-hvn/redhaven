@@ -1,5 +1,6 @@
 # HAVEN_VOTE_V3 — off-chain votes for Haven boards
 
+> votes are ephemeral low value intents that don't need to be on-chain, they only need to be sybil resistant, Havens attestation property of token holdings is re-used here.
 > Normative description. `packages/vote-core` is the implementation of record; its tests
 > and `tests/fixtures/*.json` pin the wire shapes. Votes are **not** part of the Haven
 > application protocol: nothing here is written to Arkiv, the canister, or Filecoin, and no
