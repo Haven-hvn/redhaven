@@ -40,7 +40,11 @@ export interface CommentTreeProps {
 
 export function CommentTree(p: CommentTreeProps) {
   const version = useVoteVersion()
-  const pending = useSession((s) => s.pending.filter((x) => x.kind === 'comment' && x.root === p.root.key && !x.key && !x.error))
+  // Select the stable array and filter outside the selector: a selector
+  // returning a fresh array makes zustand's snapshot change on every
+  // render, which React reads as an infinite update loop (error #185).
+  const pendingAll = useSession((s) => s.pending)
+  const pending = useMemo(() => pendingAll.filter((x) => x.kind === 'comment' && x.root === p.root.key && !x.key && !x.error), [pendingAll, p.root.key])
   const tree = useMemo(() => {
     const inputs: Node[] = p.replies.map((r) => ({ key: r.key, rootRef: r.rootRef, ...(r.parentRef ? { parentRef: r.parentRef } : {}), createdUnix: blockUnix(r.createdAt, p.clock), tally: voteEngine.tally(p.sub.ref.gate, r.key), post: r }))
     return buildTree(p.root.key, inputs, compareComments(p.sort))
@@ -84,7 +88,8 @@ function CommentView({ node, p }: { node: CommentNode<Node>; p: CommentTreeProps
   const you = !!address && address.toLowerCase() === post.owner
   const created = node.item.createdUnix
   const tally = node.item.tally
-  const pendingChildren = useSession((s) => s.pending.filter((x) => x.kind === 'comment' && x.parent === post.key && !x.key && !x.error))
+  const pendingAll = useSession((s) => s.pending)
+  const pendingChildren = useMemo(() => pendingAll.filter((x) => x.kind === 'comment' && x.parent === post.key && !x.key && !x.error), [pendingAll, post.key])
   const hiddenReason = p.hidden.get(post.key)
   const sealedLen = post.payload && 'sealed' in post.payload.text ? Math.floor((post.payload.text.sealed.length * 3) / 4) : 256
 
