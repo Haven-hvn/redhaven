@@ -77,7 +77,7 @@ export default function PrefsPage() {
 
         <h2>membership receipts</h2>
         <p className="muted small">Posting or voting in a subreddit needs one Haven-AOL receipt per 30 days: your wallet signs once, the canister checks your balance and signs the receipt, and every post and vote carries it so other readers verify you offline. Nobody checks your balance over an RPC.</p>
-        <p><a href="#" onClick={(e) => { e.preventDefault(); forgetReceipts(); reload() }}>forget stored receipts</a> <span className="muted small">(your next post or vote mints a new one)</span></p>
+        <p><a href="#" onClick={(e) => { e.preventDefault(); forgetReceipts(); reload() }}>forget stored receipts</a> <span className="muted small">(your next post or vote first looks for the receipt inside your earlier posts on Arkiv — no signature, no Haven-AOL call — and only mints a new one if none is there)</span></p>
 
         <h2>vote sessions</h2>
         <p className="muted small">A session lets this browser sign votes for one subreddit without asking your wallet each time; it embeds your receipt and expires with it. Keys are stored encrypted with a non-extractable browser key. Revoking one here deletes it; a new vote will ask for a fresh signature.</p>

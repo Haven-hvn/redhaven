@@ -14,8 +14,9 @@
  * and signs the receipt. Stored per (gate, holder) and reused all epoch.
  */
 
-import { blockToUnix, verifyRecordAuthor, type BlockClock, type BoardGate, type ReceiptCheck } from '@fairhaven/board-core'
-import { attestHoldingRequest, attestRequestTypedData, currentEpoch, gateSpec, hexToBytes, isMemberReceiptShape, randomAttestNonce, receiptFromAttestation, receiptRemaining, type MemberReceipt } from '@redhaven/vote-core'
+import { blockToUnix, hydratePosts, hydrateThreads, loadBoards, loadIndex, parseGateSpec, resolveFrom, sameGate, verifyRecordAuthor, type BlockClock, type BoardGate, type ReceiptCheck } from '@fairhaven/board-core'
+import { attestHoldingRequest, attestRequestTypedData, currentEpoch, gateSpec, hexToBytes, isMemberReceiptShape, normalizeReceipt, randomAttestNonce, receiptFromAttestation, receiptRemaining, verifyMemberReceipt, type MemberReceipt } from '@redhaven/vote-core'
+import { arkivStore } from './arkiv'
 import { connectAttestCanister, describeAttestError, type AttestCanister } from '@redhaven/vote-core/canister'
 import type { WalletClientLike } from './aol'
 import { env } from './env'
@@ -147,6 +148,50 @@ export function storedReceipt(gate: string, holder: string, now: number = Math.f
   }
 }
 
+/**
+ * The holder's reusable receipt among records read from Arkiv, if any: a
+ * member receipt (not a haven content attestation) carried by one of the
+ * holder's own posts on this gate, verified offline, with at least a day
+ * of life left. Pure — the Arkiv fetch lives in `restoreReceipt`.
+ */
+export function pickRestorableReceipt(records: ReadonlyArray<{ owner: string; payload?: { attn?: unknown } }>, gate: string, holder: string, key: Uint8Array, now: number): MemberReceipt | undefined {
+  for (const r of records) {
+    if (r.owner.toLowerCase() !== holder.toLowerCase()) continue
+    const attn = r.payload?.attn
+    if (!isMemberReceiptShape(attn)) continue
+    if (!verifyMemberReceipt(attn, gate, holder, key, now).ok) continue
+    if (receiptRemaining(attn, now) < MIN_REMAINING_S) continue
+    return normalizeReceipt(attn)
+  }
+  return undefined
+}
+
+/**
+ * Restore this wallet's receipt from its own earlier posts on Arkiv, so a
+ * new browser (or a forgotten cache) needs neither a wallet signature nor
+ * a Haven-AOL call. Best effort: any failure falls back to minting.
+ */
+async function restoreReceipt(gate: string, holder: string, onProgress?: ReceiptProgress): Promise<MemberReceipt | undefined> {
+  const boardGate = parseGateSpec(gate)
+  if (!boardGate) return undefined
+  try {
+    onProgress?.('looking for your existing receipt on Arkiv…')
+    const defs = await loadBoards(arkivStore)
+    const board = resolveFrom(defs.find((b) => sameGate(b.gate, boardGate)), boardGate)
+    const index = await loadIndex(arkivStore, board)
+    const myThreads = [...index.threads.values()].filter((t) => t.owner.toLowerCase() === holder)
+    const myPosts = [...index.posts.values()].filter((p) => p.owner.toLowerCase() === holder)
+    if (myThreads.length === 0 && myPosts.length === 0) return undefined
+    const [threads, posts] = await Promise.all([hydrateThreads(arkivStore, myThreads, board.ref), hydratePosts(arkivStore, myPosts, board.ref)])
+    const receipt = pickRestorableReceipt([...threads, ...posts], gate, holder, await attestKey(), Math.floor(Date.now() / 1000))
+    if (!receipt) return undefined
+    try { localStorage.setItem(receiptId(gate, holder), JSON.stringify(receipt)) } catch { /* memory only */ }
+    return receipt
+  } catch {
+    return undefined
+  }
+}
+
 export function forgetReceipts(): void {
   try {
     for (const k of Object.keys(localStorage)) if (k.startsWith('rh:receipt:')) localStorage.removeItem(k)
@@ -160,6 +205,13 @@ export async function ensureReceipt(wallet: WalletClientLike, gate: string, onPr
   const holder = wallet.account.address.toLowerCase()
   const have = storedReceipt(gate, holder)
   if (have) return have
+  // Cheaper than minting: reuse a receipt already published inside one of
+  // this wallet's own posts on Arkiv. No signature, no Haven-AOL call.
+  const restored = await restoreReceipt(gate, holder, onProgress)
+  if (restored) {
+    onProgress?.(null)
+    return restored
+  }
   const fields = { holder, gate, epoch: currentEpoch(), nonce: randomAttestNonce(), eip712ChainId: env.eip712ChainId, verifyingContract: env.eip712VerifyingContract }
   const typed = attestRequestTypedData(fields)
   onProgress?.('sign once to prove membership here for 30 days (no gas)…')
