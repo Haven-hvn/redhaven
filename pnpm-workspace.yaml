@@ -1,0 +1,12 @@
+packages:
+  - packages/vote-core
+  - packages/dsh-votes
+  - apps/web
+autoInstallPeers: false
+allowBuilds:
+  '@reown/appkit': false
+  esbuild: true
+onlyBuiltDependencies:
+  - esbuild
+ignoredBuiltDependencies:
+  - '@reown/appkit'

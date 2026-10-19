@@ -1,0 +1,40 @@
+{
+  "name": "@redhaven/vote-core",
+  "version": "0.1.0",
+  "description": "Implementation of record for the Haven off-chain vote protocol (HAVEN_VOTE_V3): membership receipts (Haven-AOL Ed25519 attestations, verified offline), session certificates, vote envelopes, validation, the LWW register, sync wire format, ranking.",
+  "license": "MIT",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json",
+    "./canister": {
+      "types": "./lib/canister.d.ts",
+      "default": "./lib/canister.js"
+    }
+  },
+  "files": [
+    "lib",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "prepare": "tsdown",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0",
+    "@icp-sdk/core": "6.1.0"
+  },
+  "devDependencies": {
+    "tsdown": "0.23.0",
+    "typescript": "7.0.2"
+  }
+}

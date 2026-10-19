@@ -1,0 +1,21 @@
+{
+  "$comment": "Wire-shape vectors for HAVEN_VOTE_V3. Signatures depend on random keys and are not pinned; the preimage, EIP-712 type strings and gate-spec grammar are. Receipt vectors live in receipt-vectors.json (shared with Fairhaven board-core).",
+  "votePreimage": {
+    "input": {
+      "v": 3,
+      "gate": "gate:8453:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913:1",
+      "target": "0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "voter": "0x1111111111111111111111111111111111111111",
+      "dir": -1,
+      "at": 1760000000
+    },
+    "expected": "HAVEN_VOTE_V3:gate:8453:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913:1:0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1:0x1111111111111111111111111111111111111111:-1:1760000000"
+  },
+  "sessionType": "HavenVoteSession(address holder,string gate,address sessionAddress,uint64 issuedAt,uint64 expiresAt,bytes32 receiptHash)",
+  "domainType": "EIP712Domain(string name,string version,uint256 chainId)",
+  "domain": { "name": "Haven Votes", "version": "3" },
+  "gateSpec": {
+    "valid": ["gate:1:0x8205ca8ba379fa56bfa5aabd070425d4d8a25ba0:100", "gate:8453:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913:1"],
+    "invalid": ["gate:8453:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913:1", "gate:08453:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913:1", "gate:8453:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913:0", "base.usdc"]
+  }
+}

@@ -1,72 +1,60 @@
-# redhaven — old-Reddit front end for P2P off-chain voting
+# redhaven
 
-A zero-backend, browser-only client styled as old Reddit (2008–2010), where
-upvotes are real votes in a peer-to-peer off-chain protocol. Static bundle —
-no server we operate, nothing on-chain, no relays we own.
+A Haven protocol client that looks and works like reddit did in 2008–2010: subreddits are
+token gates, submissions and comments are Arkiv entities every Haven app can read, and
+votes are an off-chain layer exchanged between redhaven readers over WebRTC. No backend.
 
-## Protocol
+This is the production implementation of the `redhaven-main` prototype. What changed and
+why is in `docs/VOTE_PROTOCOL.md` §10 and `docs/SPEC.md`.
 
-- **Transport**: Trystero (WebRTC DataChannels, Nostr signaling fallback
-  per the agreed plan — Trystero 0.26 no longer ships the manual strategy)
-- **State**: G-Set (grow-only set) gossip — merge = union, commutative and
-  idempotent. Tally computed locally from validated votes; never transmitted.
-- **Vote**: one per wallet per item, irreversible, earliest-wins on conflict.
-- **Cryptography**: wallet signs an EIP-712 `HavenVoteSession` certificate
-  over an ephemeral secp256k1 session key (once per board session); the
-  session key signs each vote over the canonical preimage
-  `HAVEN_VOTE_V1:{board}:{rootRef}:{voter}:{sessionPubKey}:{attestation.timestamp}`.
-- **Attestation**: votes carry the voter's own Haven attestation
-  (`HAVEN_ATTEST_V1` single-CID shape, Ed25519, 30-day TTL) — relayed
-  peer-to-peer, no on-chain write needed to vote on other people's entities.
-  Validation is the exact offline verifier ported from Haven-dapp
-  (`src/lib/haven/attestation.js`), plus the gate conformance check
-  (token, chain variant, threshold, voter binding).
-
-## Modes
-
-- **demo** (default): clearly labeled simulation — pinned demo issuer key,
-  seeded boards using documented Haven gate examples (`base.usdc`,
-  `mainnet.og`, `base.dovu`, `base.shib`), local demo wallet. The full
-  protocol machinery (EIP-712, signatures, gossip, validation) is real; the
-  attestation issuer is not the Haven-AOL canister and proves nothing.
-- **live**: real Arkiv reads via the public `@arkiv-network/sdk` (Viem),
-  defaulting to the Tiramisu testnet public RPC. Boards are discovered
-  exactly per the Fairhaven entity contract (`grp = 'haven.board.def'`);
-  threads and replies via the cookbook queries (`haven.board.thread` /
-  `haven.board.post`, first-writer-wins on duplicate slugs). A gate
-  without a board def is still a board: the "add board by gate" form
-  creates implicit boards (spec slug `g.<chainId>.<token12>`), with
-  threads surfaced from `haven.*.full` media records matching the gate.
-  Sealed text renders frosted with a pointer to haven-dapp. Voting in live
-  mode additionally requires a Haven-AOL attestation issuer key — without
-  it, votes fail honestly with a clear error instead of silently
-  substituting a self-signed attestation. Tiramisu currently has no Haven
-  entities, so live mode shows honest empty states (queries verified
-  working against the public RPC).
-
-## Run
-
-```sh
-npm install
-npm run build   # esbuild → src/app.js
-npx serve src   # or any static file server
+```
+packages/vote-core   HAVEN_VOTE_V3 — membership receipts, sessions, envelopes, validation, LWW register, sync, ranking (pure TS)
+packages/dsh-votes   DeepSeek Harness plugin: agents vote as ordinary gate holders (Node peer in the same rooms)
+apps/web             Next.js static export; the site
+docs/                SPEC.md (product + architecture), VOTE_PROTOCOL.md (normative wire spec)
+scripts/             ensure-vendor.mjs — fetches the two unpublished Haven packages into vendor/
+vendor/              (gitignored) haven-aol and fairhaven checkouts
 ```
 
-## Tests
+## Setup
+
+The app imports two packages that are not on npm, aliased from `vendor/` the way haven-dapp
+and Fairhaven alias `haven-aol`:
 
 ```sh
-node test-protocol.mjs   # 15 protocol conformance checks
+# local dev: symlink sibling checkouts
+mkdir -p vendor
+ln -s ../../haven-aol-main vendor/haven-aol
+ln -s ../../fairhaven-main vendor/fairhaven
+# or: FAIRHAVEN_REPO_URL=<git url> pnpm vendor   (clones; haven-aol defaults to Haven-hvn/haven-aol)
+
+cp apps/web/.env.local.example apps/web/.env.local   # set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
+pnpm install                                         # postinstall runs ensure-vendor + npm ci in haven-aol's TS package
+pnpm test                                            # vote-core protocol tests
+pnpm web:dev
 ```
 
-## Conformance notes (honest limits)
+`pnpm web:build` writes `apps/web/out/`; `deploy.yml` pins it to IPFS with PinMe on `main`.
+CI requires the repository variable `FAIRHAVEN_REPO_URL` (Fairhaven's canonical origin was
+not confirmed when this was written, so it is not hardcoded).
 
-- The visual layer is a **documentation-based** recreation from Wayback
-  Machine captures of reddit.com (2008-04-10, 2009-09-26), not recovered
-  behavior.
-- `haven.board.def` / `haven.board.thread` / `haven.board.post` entity
-  shapes and query recipes follow the Fairhaven entity contract exactly;
-  demo-mode thread content is seed data, not retrieved Arkiv entities.
-- Late joiners reject votes whose attestations expired before arrival —
-  tallies are per-client validated sets, not a global truth.
-- Down arrows render for visual fidelity but are disabled: the grow-only
-  vote set has no retraction or direction reversal.
+## Routes
+
+| Route | Page |
+|---|---|
+| `/` | front page: every subreddit, hot / new / top / controversial |
+| `/r/?s=<slug>` | a subreddit (`s` may also be `gate:<chainId>:<0xtoken>:<threshold>`) |
+| `/comments/?s=&id=<key>` | a submission with nested comments (best / top / new / controversial / old) |
+| `/submit/?s=` | submit text and/or media (sealed or clear, per field) |
+| `/subreddits/`, `/subreddits/create/`, `/random/` | directory, define a subreddit, random pick |
+| `/u/?a=<address>` | a pseudonym's live submissions and comments |
+| `/prefs/` | vote relay, vote sessions, asset lookup, personal filters, clear local data |
+
+## Written without installing or running
+
+Per the brief, nothing here has been installed, built or executed. Expect first-contact
+fixes in the places `docs/SPEC.md` §9 lists: the `@noble/curves` 2.x recovered-signature
+byte order (`packages/vote-core/src/secp.ts`, covered by the protocol tests), Trystero's
+`joinRoom`/`makeAction` shapes for 0.26 (`apps/web/src/lib/votes/transport.ts`), and the
+Arkiv / Synapse call signatures copied from Fairhaven's write path. CI needs a committed
+`pnpm-lock.yaml`, which only `pnpm install` can produce.

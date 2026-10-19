@@ -1,24 +1,29 @@
 {
-  "name": "haven-oldreddit",
-  "version": "1.0.0",
+  "name": "redhaven-workspace",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "packageManager": "pnpm@11.0.0",
   "scripts": {
-    "build": "node build.mjs",
-    "test": "node test-protocol.mjs"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
-  "dependencies": {
-    "@arkiv-network/sdk": "^0.8.1",
-    "@noble/curves": "^2.4.0",
-    "@noble/hashes": "^2.4.0",
-    "ethers": "^6.17.0",
-    "trystero": "^0.26.0",
-    "viem": "^2.57.7"
+    "build": "pnpm -r --filter './packages/*' run build",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "test": "vitest run",
+    "vendor": "node scripts/ensure-vendor.mjs",
+    "web:dev": "pnpm --filter redhaven-web dev",
+    "web:build": "pnpm --filter redhaven-web build"
   },
   "devDependencies": {
-    "esbuild": "^0.25.0"
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0",
+    "@types/node": "26.6.3",
+    "tsdown": "0.23.0",
+    "typescript": "7.0.2",
+    "vite": "^7.0.0",
+    "vitest": "5.0.2"
   },
-  "type": "module"
+  "pnpm": {
+    "ignoredBuiltDependencies": [
+      "@reown/appkit"
+    ]
+  }
 }

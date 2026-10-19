@@ -1,0 +1,78 @@
+name: ci
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+# Only actions/checkout is used: the org's Actions policy does not resolve marketplace
+# setup-* actions. pnpm comes from corepack; Node from the runner image.
+jobs:
+  vote-core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: pnpm via corepack
+        run: corepack enable && corepack prepare pnpm@11 --activate
+      - name: Install (workspace + packages)
+        run: pnpm install --frozen-lockfile --filter './packages/*' --filter redhaven-workspace
+      - name: Test
+        run: pnpm test
+      - name: Typecheck + build
+        run: |
+          pnpm -r --filter './packages/*' run typecheck
+          pnpm -r --filter './packages/*' run build
+      - name: Fixture integrity
+        run: node -e "for (const f of ['vote-vectors','rank-vectors']) JSON.parse(require('fs').readFileSync('packages/vote-core/tests/fixtures/'+f+'.json','utf8'))"
+
+  web:
+    runs-on: ubuntu-latest
+    needs: vote-core
+    env:
+      # Unpublished Haven packages are vendored; see scripts/ensure-vendor.mjs.
+      HAVEN_AOL_REPO_URL: ${{ vars.HAVEN_AOL_REPO_URL || 'https://github.com/Haven-hvn/haven-aol.git' }}
+      FAIRHAVEN_REPO_URL: ${{ vars.FAIRHAVEN_REPO_URL }}
+      REDHAVEN_VENDOR_STRICT: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require FAIRHAVEN_REPO_URL
+        run: |
+          if [ -z "$FAIRHAVEN_REPO_URL" ]; then
+            echo "Set the repository variable FAIRHAVEN_REPO_URL to the fairhaven git URL (board-core is vendored from it)." >&2
+            exit 1
+          fi
+      - name: pnpm via corepack
+        run: corepack enable && corepack prepare pnpm@11 --activate
+      - name: Vendor haven-aol and fairhaven
+        run: node scripts/ensure-vendor.mjs
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build haven-aol TypeScript SDK
+        working-directory: vendor/haven-aol/packages/typescript
+        run: npm run build --if-present
+      - name: Web unit tests
+        run: pnpm --filter redhaven-web test
+      - name: Type-check
+        working-directory: apps/web
+        run: pnpm run type-check
+      - name: Build static export
+        working-directory: apps/web
+        env:
+          NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID }}
+          NEXT_PUBLIC_ARKIV_RPC_URL: ${{ vars.NEXT_PUBLIC_ARKIV_RPC_URL || 'https://rpc.tiramisu.db-chain.testnet.arkiv.network' }}
+          NEXT_PUBLIC_HAVEN_AOL_CANISTER_ID: ${{ vars.NEXT_PUBLIC_HAVEN_AOL_CANISTER_ID || 'gny6k-fqaaa-aaaab-ag3ra-cai' }}
+          NEXT_PUBLIC_EIP712_CHAIN_ID: ${{ vars.NEXT_PUBLIC_EIP712_CHAIN_ID || '1' }}
+          NEXT_PUBLIC_EIP712_VERIFYING_CONTRACT: ${{ vars.NEXT_PUBLIC_EIP712_VERIFYING_CONTRACT || '0x0000000000000000000000000000000000000000' }}
+        run: pnpm run build
+      - name: Verify export
+        working-directory: apps/web
+        run: |
+          test -f out/index.html
+          test -f out/r/index.html
+          test -f out/comments/index.html
+          test -f out/icon.svg || test -f out/_next/static/media/icon*.svg
+          du -sh out

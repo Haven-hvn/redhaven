@@ -1,0 +1,9 @@
+{
+  "hot": [
+    { "tally": { "ups": 0, "downs": 0, "score": 0 }, "createdUnix": 1134028003, "expected": 0 },
+    { "tally": { "ups": 10, "downs": 0, "score": 10 }, "createdUnix": 1134028003, "expected": 1 },
+    { "tally": { "ups": 0, "downs": 10, "score": -10 }, "createdUnix": 1134028003, "expected": -1 },
+    { "tally": { "ups": 100, "downs": 0, "score": 100 }, "createdUnix": 1134073003, "expected": 3 },
+    { "tally": { "ups": 1, "downs": 0, "score": 1 }, "createdUnix": 1760000000, "expected": 13910.48882222222 }
+  ]
+}

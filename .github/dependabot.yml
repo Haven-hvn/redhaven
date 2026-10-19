@@ -1,0 +1,19 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      dev:
+        dependency-type: development
+    ignore:
+      - dependency-name: '@arkiv-network/sdk'
+      - dependency-name: '@icp-sdk/*'
+      - dependency-name: '@filoz/*'
+      - dependency-name: 'trystero'
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

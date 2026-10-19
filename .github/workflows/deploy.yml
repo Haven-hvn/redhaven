@@ -1,0 +1,70 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Pins apps/web/out to IPFS with PinMe (haven-dapp / fairhaven pattern).
+jobs:
+  pinme:
+    runs-on: ubuntu-latest
+    env:
+      HAVEN_AOL_REPO_URL: ${{ vars.HAVEN_AOL_REPO_URL || 'https://github.com/Haven-hvn/haven-aol.git' }}
+      FAIRHAVEN_REPO_URL: ${{ vars.FAIRHAVEN_REPO_URL }}
+      REDHAVEN_VENDOR_STRICT: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check secrets and variables
+        run: |
+          if [ -z "${{ secrets.PINME_APPKEY }}" ]; then
+            echo "PINME_APPKEY secret missing: npm install -g pinme && pinme login && pinme show-appkey" >&2
+            exit 1
+          fi
+          if [ -z "$FAIRHAVEN_REPO_URL" ]; then
+            echo "FAIRHAVEN_REPO_URL repository variable missing." >&2
+            exit 1
+          fi
+      - name: pnpm via corepack
+        run: corepack enable && corepack prepare pnpm@11 --activate
+      - name: Vendor haven-aol and fairhaven
+        run: node scripts/ensure-vendor.mjs
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build haven-aol TypeScript SDK
+        working-directory: vendor/haven-aol/packages/typescript
+        run: npm run build --if-present
+      - name: Build
+        working-directory: apps/web
+        env:
+          NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID }}
+          NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL || 'https://redhaven.pinme.eth.limo/' }}
+          NEXT_PUBLIC_ARKIV_RPC_URL: ${{ vars.NEXT_PUBLIC_ARKIV_RPC_URL || 'https://rpc.tiramisu.db-chain.testnet.arkiv.network' }}
+          NEXT_PUBLIC_HAVEN_AOL_CANISTER_ID: ${{ vars.NEXT_PUBLIC_HAVEN_AOL_CANISTER_ID || 'gny6k-fqaaa-aaaab-ag3ra-cai' }}
+          NEXT_PUBLIC_EIP712_CHAIN_ID: ${{ vars.NEXT_PUBLIC_EIP712_CHAIN_ID || '1' }}
+          NEXT_PUBLIC_EIP712_VERIFYING_CONTRACT: ${{ vars.NEXT_PUBLIC_EIP712_VERIFYING_CONTRACT || '0x0000000000000000000000000000000000000000' }}
+          NEXT_PUBLIC_RPC_1: ${{ vars.NEXT_PUBLIC_RPC_1 }}
+          NEXT_PUBLIC_RPC_8453: ${{ vars.NEXT_PUBLIC_RPC_8453 }}
+          NEXT_PUBLIC_RPC_10: ${{ vars.NEXT_PUBLIC_RPC_10 }}
+          NEXT_PUBLIC_RPC_42161: ${{ vars.NEXT_PUBLIC_RPC_42161 }}
+          NEXT_PUBLIC_RPC_11155111: ${{ vars.NEXT_PUBLIC_RPC_11155111 }}
+          NEXT_PUBLIC_HAVEN_DAPP_URL: ${{ vars.NEXT_PUBLIC_HAVEN_DAPP_URL || 'https://haven.video' }}
+          NEXT_PUBLIC_IPFS_GATEWAY: ${{ vars.NEXT_PUBLIC_IPFS_GATEWAY }}
+          NEXT_PUBLIC_NOSTR_RELAYS: ${{ vars.NEXT_PUBLIC_NOSTR_RELAYS }}
+          NEXT_PUBLIC_TURN: ${{ secrets.NEXT_PUBLIC_TURN }}
+          NEXT_PUBLIC_COINGECKO_DEMO_KEY: ${{ secrets.NEXT_PUBLIC_COINGECKO_DEMO_KEY }}
+        run: pnpm run build && test -f out/index.html
+      - name: Authenticate PinMe
+        run: |
+          npx pinme@2.0.12 --version
+          npx pinme@2.0.12 set-appkey "${{ secrets.PINME_APPKEY }}"
+      - name: Deploy
+        working-directory: apps/web
+        env:
+          PINME_DOMAIN: ${{ vars.PINME_DOMAIN || secrets.PINME_DOMAIN }}
+        run: |
+          if [ -n "$PINME_DOMAIN" ]; then npx pinme@2.0.12 upload ./out --domain "$PINME_DOMAIN"; else npx pinme@2.0.12 upload ./out; fi
+          npx pinme@2.0.12 list -l 3 || true

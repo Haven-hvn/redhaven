@@ -1,2 +1,12 @@
 node_modules/
-qa-*.jpg
+packages/*/lib/
+dist/
+.next/
+out/
+*.log
+.env
+.env.local
+.DS_Store
+tsconfig.tsbuildinfo
+# Vendored checkouts (see scripts/ensure-vendor.mjs); never committed.
+vendor/

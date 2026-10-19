@@ -1,0 +1,44 @@
+{
+  "name": "redhaven-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run --config vitest.config.ts",
+    "clean": "rm -rf .next out",
+    "deploy": "npx pinme@2.0.12 upload ./out",
+    "postinstall": "node ../../scripts/ensure-vendor.mjs"
+  },
+  "dependencies": {
+    "@arkiv-network/sdk": "^0.8.1",
+    "@filoz/synapse-core": "^0.10.0",
+    "@filoz/synapse-sdk": "2.0.2",
+    "@icp-sdk/core": "6.1.0",
+    "@icp-sdk/vetkeys": "0.7.0",
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0",
+    "@react-native-async-storage/async-storage": "3.1.1",
+    "@redhaven/vote-core": "workspace:*",
+    "@reown/appkit": "1.8.24",
+    "@reown/appkit-adapter-wagmi": "1.8.24",
+    "@tanstack/react-query": "5.104.0",
+    "@wagmi/core": "3.6.5",
+    "next": "16.3.6",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "trystero": "0.26.0",
+    "viem": "2.57.0",
+    "wagmi": "3.7.7",
+    "zustand": "5.0.15"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.0",
+    "@types/react-dom": "19.2.0",
+    "typescript": "7.0.2",
+    "vitest": "5.0.2"
+  }
+}
