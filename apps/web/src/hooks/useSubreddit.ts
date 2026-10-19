@@ -39,6 +39,7 @@ import {
   type ThreadRecord,
 } from '@fairhaven/board-core'
 import { arkivStore, watchEntities } from '@/lib/arkiv'
+import { liveBoardBySlug } from '@/lib/subreddit'
 import { membership } from '@/lib/evm'
 import { clockNow, verifyAuthors } from '@/lib/receipt'
 import { hasUnlocked, openSealedText, parseGateJson, unlock, type WalletClientLike } from '@/lib/aol'
@@ -129,7 +130,17 @@ export function useResolvedSubreddit(s: string | null) {
       const def = gate ? defs.find((b) => sameGate(b.gate, gate)) : (defs.find((b) => b.board === s) ?? defs.find((b) => implicitSlug(b.gate) === s))
       if (def) return resolveFrom(def, def.gate)
       if (gate) return resolveFrom(undefined, gate)
-      return null
+      // Def-less implicit slug: it truncates the token and omits the
+      // threshold, so no gate can be derived from it. Recover the full gate
+      // from a live submission's board, as comments/ does from its root.
+      // Reuses the frontpage query, so arriving from /, /u/ or /subreddits/
+      // (which all build that index) costs no extra scan.
+      try {
+        const index = await qc.fetchQuery({ queryKey: ['frontpage'], queryFn: () => loadGlobalIndex(arkivStore, {}), staleTime: 30_000 })
+        return liveBoardBySlug(index, s) ?? null
+      } catch {
+        return null
+      }
     },
     enabled: !!s,
     staleTime: 60_000,
