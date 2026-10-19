@@ -38,6 +38,8 @@ pnpm web:dev
 CI requires the repository variable `FAIRHAVEN_REPO_URL` (Fairhaven's canonical origin was
 not confirmed when this was written, so it is not hardcoded).
 
+Companion Web3 agent https://github.com/Haven-hvn/deepseek-harness-web3-agent-stack
+
 ## Routes
 
 | Route | Page |
