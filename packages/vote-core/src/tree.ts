@@ -49,10 +49,12 @@ export function buildTree<T extends TreeInput>(rootKey: string, replies: readonl
   }
   // Break any accidental cycle (A→B→A) by dropping back-edges to an ancestor.
   const visiting = new Set<string>()
+  const visited = new Set<string>()
   const settle = (n: CommentNode<T>, depth: number): number => {
     const k = n.item.key.toLowerCase()
     if (visiting.has(k)) return 0
     visiting.add(k)
+    visited.add(k)
     n.depth = depth
     n.children = n.children.filter((c) => !visiting.has(c.item.key.toLowerCase()))
     n.children.sort((a, b) => compare(a.item, b.item))
@@ -63,6 +65,16 @@ export function buildTree<T extends TreeInput>(rootKey: string, replies: readonl
     return d
   }
   for (const r of roots) settle(r, 0)
+  // A closed cycle has no root, so nothing above reached it. Promote one node
+  // per remaining component to a root and detach it from its parent first.
+  for (const node of byKey.values()) {
+    if (visited.has(node.item.key.toLowerCase())) continue
+    const p = node.item.parentRef?.toLowerCase()
+    const parent = p ? byKey.get(p) : undefined
+    if (parent) parent.children = parent.children.filter((c) => c !== node)
+    roots.push(node)
+    settle(node, 0)
+  }
   roots.sort((a, b) => compare(a.item, b.item))
   return { roots, orphans }
 }

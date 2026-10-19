@@ -46,20 +46,20 @@ export async function joinGateRoom(gate: string, opts: TransportOptions = {}): P
   }
   if (opts.nostrRelays && opts.nostrRelays.length > 0) config.relayUrls = opts.nostrRelays
   const room = joinRoom(config as never, roomId)
-  const [send, receive] = room.makeAction<unknown>('m')
+  const action = room.makeAction('m')
   return {
     roomId,
     send(msg, to) {
-      void send(msg as never, to as never)
+      void action.send(msg as never, to ? { target: to } : undefined)
     },
     onMessage(cb) {
-      receive((data, peerId) => cb(data, String(peerId)))
+      action.onMessage = (data, context) => cb(data, String(context.peerId))
     },
     onPeerJoin(cb) {
-      room.onPeerJoin((id) => cb(String(id)))
+      room.onPeerJoin = (id) => cb(String(id))
     },
     onPeerLeave(cb) {
-      room.onPeerLeave((id) => cb(String(id)))
+      room.onPeerLeave = (id) => cb(String(id))
     },
     peers() {
       return Object.keys(room.getPeers())

@@ -56,7 +56,6 @@ import {
   type MemberReceipt,
   type SessionCert,
   type Tally,
-  type Vote,
   type VoteDir,
 } from '@redhaven/vote-core'
 import { connectAttestCanister, describeAttestError, type AttestCanister } from '@redhaven/vote-core/canister'

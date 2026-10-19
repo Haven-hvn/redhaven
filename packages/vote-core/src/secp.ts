@@ -35,7 +35,9 @@ export function addressOfPrivateKey(priv: Uint8Array): string {
 export function signDigest(digest: Uint8Array, priv: Uint8Array): string {
   if (digest.length !== 32) throw new Error('vote-core: digest must be 32 bytes')
   // noble 2.x: 'recovered' = 65 bytes, recovery byte FIRST, then compact r‖s.
-  const rec = secp256k1.sign(digest, priv, { lowS: true, format: 'recovered' })
+  // prehash: false — `digest` is already the 32-byte hash the caller wants signed;
+  // noble otherwise hashes it again, so recovery would not match this digest.
+  const rec = secp256k1.sign(digest, priv, { lowS: true, prehash: false, format: 'recovered' })
   const recovery = rec[0] as number
   const rs = rec.subarray(1)
   const out = new Uint8Array(65)
