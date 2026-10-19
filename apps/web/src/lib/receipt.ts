@@ -78,17 +78,47 @@ export interface Authored {
   payload?: { attn?: unknown }
 }
 
-export async function verifyAuthors<T extends Authored>(records: readonly T[], clock: BlockClock | undefined): Promise<{ ok: T[]; rejected: Map<string, ReceiptCheck> }> {
+/**
+ * Records that need no receipt to be shown:
+ * - `source: 'haven'` — published by another Haven app (haven-cli, haven-dapp,
+ *   agents). Those records carry no `payload.attn` by construction; their gate
+ *   was already matched when the record was parsed.
+ * - the connected viewer's own records — your posts are never hidden from you.
+ */
+export function receiptExempt(r: { owner: string; source?: 'board' | 'haven' }, me?: string): boolean {
+  if (r.source === 'haven') return true
+  return !!me && r.owner.toLowerCase() === me.toLowerCase()
+}
+
+/** True when the record actually carries an attestation in its payload. */
+export function hasAttn(r: { payload?: { attn?: unknown } }): boolean {
+  return r.payload?.attn !== undefined
+}
+
+export async function verifyAuthors<T extends Authored>(records: readonly T[], clock: BlockClock | undefined, me?: string): Promise<{ ok: T[]; rejected: Map<string, ReceiptCheck> }> {
   if (records.length === 0) return { ok: [], rejected: new Map() }
-  const key = await attestKey()
-  const now = Math.floor(Date.now() / 1000)
   const ok: T[] = []
   const rejected = new Map<string, ReceiptCheck>()
-  for (const r of records) {
+  const toVerify = records.filter((r) => {
+    // No attestation is the fallback, not a failure: legacy records, other
+    // Haven apps, and agents without attestHolding publish without one, so
+    // the post shows unverified (its title is public by design). A record
+    // that does carry an attestation must pass verification below.
+    if (receiptExempt(r, me) || !hasAttn(r)) { ok.push(r); return false }
+    return true
+  })
+  // No canister query at all when everything on the page is exempt.
+  if (toVerify.length === 0) return { ok, rejected }
+  const key = await attestKey()
+  const now = Math.floor(Date.now() / 1000)
+  for (const r of toVerify) {
     const check = verifyRecordAuthor(r, key, clock ? blockToUnix(r.createdAt, clock) : now)
     if (check.ok) ok.push(r)
     else rejected.set(r.key, check)
   }
+  // Restore input order (exempt records were pushed first).
+  const order = new Map(records.map((r, i) => [r.key, i]))
+  ok.sort((a, b) => (order.get(a.key) ?? 0) - (order.get(b.key) ?? 0))
   return { ok, rejected }
 }
 

@@ -1,12 +1,14 @@
 'use client'
 
 import { useMemo } from 'react'
-import type { BlockClock, FoldedThread, ResolvedBoard, ThreadRecord } from '@fairhaven/board-core'
+import { describeAttestation, type BlockClock, type FoldedThread, type ResolvedBoard, type ThreadRecord } from '@fairhaven/board-core'
 import type { ListingSort } from '@redhaven/vote-core'
 import { usePageHydration } from '@/hooks/useSubreddit'
 import { useVoteVersion } from '@/hooks/useVotes'
 import { useHidden } from '@/hooks/useHidden'
 import { voteEngine } from '@/lib/votes/engine'
+import { hasAttn } from '@/lib/receipt'
+import { pluralize } from '@/lib/format'
 import { pageSlice, rankIndex } from '@/lib/ranking'
 import { Thing } from './Thing'
 import { Pager } from './Pager'
@@ -48,11 +50,14 @@ export function Listing(p: ListingProps) {
       {shown.map((i, n) => {
         const folded = i.folded
         const h = hidden.get(i.thread.key)
-        return <Thing key={i.thread.key} rank={(pg.page - 1) * 25 + n + 1} thread={i.thread} folded={folded} sub={i.sub} clock={p.clock} {...(p.showSubreddit ? { showSubreddit: true } : {})} {...(h ? { hidden: h } : {})} showStubs={showStubs} />
+        return <Thing key={i.thread.key} rank={(pg.page - 1) * 25 + n + 1} thread={i.thread} folded={folded} sub={i.sub} clock={p.clock} {...(p.showSubreddit ? { showSubreddit: true } : {})} {...(h ? { hidden: h } : {})} showStubs={showStubs} {...(hydration.data ? { attn: hasAttn(i.thread) ? 'verified' as const : 'missing' as const } : {})} />
       })}
       {hydration.isLoading && <p className="empty">checking posters…</p>}
+      {hydration.data && hydration.data.some((i) => !hasAttn(i.thread)) && (
+        <p className="empty small">{pluralize(hydration.data.filter((i) => !hasAttn(i.thread)).length, 'post')} {describeAttestation('missing')}.</p>
+      )}
       {hydration.data && hydration.data.length < items.length && (
-        <p className="empty small">{items.length - hydration.data.length} on this page hidden: poster no longer holds the token (or the RPC did not answer).</p>
+        <p className="empty small">{items.length - hydration.data.length} on this page not shown: {describeAttestation('invalid')}.</p>
       )}
       <Pager page={pg.page} pages={pg.pages} hrefFor={p.hrefForPage} {...(p.truncated ? { truncated: true } : {})} {...(p.onMore ? { onMore: p.onMore } : {})} />
     </div>

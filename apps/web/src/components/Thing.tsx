@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
-import type { BlockClock, FoldedThread, HiddenReason, ResolvedBoard, ThreadRecord } from '@fairhaven/board-core'
+import { attestationLabel, describeAttestation, type AttestationState, type BlockClock, type FoldedThread, type HiddenReason, type ResolvedBoard, type ThreadRecord } from '@fairhaven/board-core'
 import { VoteArrows } from './VoteArrows'
 import { Thumbnail } from './MediaView'
 import { ShareLink } from './ShareLink'
@@ -22,6 +22,8 @@ export interface ThingProps {
   showSubreddit?: boolean
   hidden?: HiddenReason
   showStubs?: boolean
+  /** Attestation state, once the page's records have been checked. */
+  attn?: AttestationState
 }
 
 /** Flair-ish label for what the submission carries. */
@@ -71,6 +73,7 @@ export function Thing(p: ThingProps) {
           submitted <time dateTime={new Date(created * 1000).toISOString()} title={new Date(created * 1000).toLocaleString()}>{timeAgo(created)}</time> by{' '}
           <Link href={userPath(t.owner)} className="author" title={t.owner}>{shortAddress(t.owner)}</Link>
           {you && <span className="you-tag"> (you)</span>}
+          {p.attn && <> · <span className="attn-state" title={describeAttestation(p.attn)}>{attestationLabel(p.attn)}</span></>}
           {p.showSubreddit && (
             <>
               {' '}to <Link href={subredditPath(p.sub.ref.slug)} className="subreddit">{p.sub.ref.slug}</Link>

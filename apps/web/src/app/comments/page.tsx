@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAccount, useWalletClient } from 'wagmi'
 import { COMMENT_SORTS, isCommentSort, type CommentSort } from '@redhaven/vote-core'
+import { attestationLabel, describeAttestation } from '@fairhaven/board-core'
 import { useCurrentBlock, useOpenText, useResolvedSubreddit, useSubmission, useSubredditFromRoot } from '@/hooks/useSubreddit'
 import { useOpenVotes } from '@/hooks/useVotes'
 import { useHidden } from '@/hooks/useHidden'
@@ -67,7 +68,7 @@ function Comments() {
   if (submission.data === null || submission.data?.rootHidden) {
     return (
       <Page current={sr.ref.slug}>
-        <p className="empty">This submission has expired, was deleted, or its poster no longer holds the token. <Link href={subredditPath(sr.ref.slug)}>back to r/{sr.ref.slug}</Link></p>
+        <p className="empty">This submission has expired, was deleted, or the membership proof on it couldn&rsquo;t be validated. <Link href={subredditPath(sr.ref.slug)}>back to r/{sr.ref.slug}</Link></p>
       </Page>
     )
   }
@@ -128,6 +129,7 @@ function Submission({ root, sr, clock, onDeleted }: { root: import('@fairhaven/b
           submitted <time dateTime={new Date(created * 1000).toISOString()} title={new Date(created * 1000).toLocaleString()}>{timeAgo(created)}</time> by{' '}
           <Link href={userPath(root.owner)} className="author" title={root.owner}>{shortAddress(root.owner)}</Link>
           {you && <span className="you-tag"> (you)</span>}
+          {' · '}<span title={describeAttestation(root.payload?.attn !== undefined ? 'verified' : 'missing')}>{attestationLabel(root.payload?.attn !== undefined ? 'verified' : 'missing')}</span>
           {root.source === 'haven' && <span className="muted"> · published by another Haven app ({root.grp}) · <a href={foreignHref(root)} target="_blank" rel="noreferrer noopener">open in haven-dapp</a></span>}
         </p>
         <div className="expando">

@@ -212,8 +212,9 @@ export function useFrontpage() {
  * receipt offline (fail-closed, as Fairhaven does). No RPC per owner.
  */
 export function usePageHydration(items: Array<{ thread: ThreadRecord; sub: ResolvedBoard }>, pageKey: string, currentBlock?: number) {
+  const { address } = useAccount()
   return useQuery({
-    queryKey: ['page-hydrate', pageKey],
+    queryKey: ['page-hydrate', pageKey, address?.toLowerCase()],
     queryFn: async () => {
       const bySub = new Map<string, { sub: ResolvedBoard; threads: ThreadRecord[] }>()
       for (const i of items) {
@@ -224,7 +225,7 @@ export function usePageHydration(items: Array<{ thread: ThreadRecord; sub: Resol
       const hydrated = new Map<string, ThreadRecord>()
       await Promise.all([...bySub.values()].map(async ({ sub, threads }) => { for (const t of await hydrateThreads(arkivStore, threads, sub.ref)) hydrated.set(t.key, t) }))
       const withPayload = items.map((i) => ({ ...i, thread: hydrated.get(i.thread.key) ?? i.thread }))
-      const ok = new Set((await verifyAuthors(withPayload.map((i) => i.thread), clockNow(currentBlock))).ok.map((t) => t.key))
+      const ok = new Set((await verifyAuthors(withPayload.map((i) => i.thread), clockNow(currentBlock), address)).ok.map((t) => t.key))
       return withPayload.filter((i) => ok.has(i.thread.key))
     },
     enabled: items.length > 0,
@@ -239,18 +240,19 @@ export function subredditOf(index: GlobalIndex, t: ThreadRecord): ResolvedBoard 
 /** One submission with its comments, every author verified by receipt. */
 export function useSubmission(sub: ResolvedBoard | null | undefined, rootKey: string | null, rootRaw?: RawEntity) {
   const block = useCurrentBlock()
+  const { address } = useAccount()
   useChangeProbe(['submission'])
   useEntityWatch()
   return useQuery({
-    queryKey: ['submission', sub?.ref.slug, rootKey],
+    queryKey: ['submission', sub?.ref.slug, rootKey, address?.toLowerCase()],
     queryFn: async () => {
       if (!sub || !rootKey) return null
       const t = await loadThread(arkivStore, sub, rootKey, block.data ?? undefined, ...(rootRaw ? ([{ rootRaw }] as const) : []))
       if (!t) return null
       // Root and comments arrive with payloads; verify every author's receipt offline.
       const clock = clockNow(block.data ?? undefined)
-      if ((await verifyAuthors([t.root], clock)).ok.length === 0) return { ...t, rootHidden: true as const, replies: [] as PostRecord[] }
-      return { ...t, rootHidden: false as const, replies: (await verifyAuthors(t.replies, clock)).ok }
+      if ((await verifyAuthors([t.root], clock, address)).ok.length === 0) return { ...t, rootHidden: true as const, replies: [] as PostRecord[] }
+      return { ...t, rootHidden: false as const, replies: (await verifyAuthors(t.replies, clock, address)).ok }
     },
     enabled: !!sub && !!rootKey,
     staleTime: 30_000,
