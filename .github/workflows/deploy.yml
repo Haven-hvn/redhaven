@@ -28,6 +28,15 @@ jobs:
             echo "FAIRHAVEN_REPO_URL repository variable missing." >&2
             exit 1
           fi
+      - name: Check Arkiv API key presence
+        env:
+          ARKIV_API_KEY: ${{ secrets.ARKIV_API_KEY }}
+        run: |
+          if [ -z "$ARKIV_API_KEY" ]; then
+            echo "ARKIV_API_KEY secret missing or empty: the static bundle would ship without X-API-KEY and all reads would use the anonymous tier." >&2
+            exit 1
+          fi
+          echo "ARKIV_API_KEY is set (length ${#ARKIV_API_KEY}); reads will send X-API-KEY. Value never printed."
       - name: pnpm via corepack
         run: corepack enable && corepack prepare pnpm@11 --activate
       - name: Vendor haven-aol and fairhaven
