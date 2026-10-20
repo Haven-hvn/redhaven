@@ -18,7 +18,7 @@ import { blockToUnix, hydratePosts, hydrateThreads, loadBoards, loadIndex, parse
 import { attestHoldingRequest, attestRequestTypedData, currentEpoch, gateSpec, hexToBytes, isMemberReceiptShape, normalizeReceipt, randomAttestNonce, receiptFromAttestation, receiptRemaining, verifyMemberReceipt, type MemberReceipt } from '@redhaven/vote-core'
 import { arkivStore } from './arkiv'
 import { connectAttestCanister, describeAttestError, type AttestCanister } from '@redhaven/vote-core/canister'
-import type { WalletClientLike } from './aol'
+import { signTypedDataOnChain, type WalletClientLike } from './aol'
 import { env } from './env'
 
 export function gateSpecOf(gate: BoardGate): string {
@@ -215,12 +215,17 @@ export async function ensureReceipt(wallet: WalletClientLike, gate: string, onPr
   const fields = { holder, gate, epoch: currentEpoch(), nonce: randomAttestNonce(), eip712ChainId: env.eip712ChainId, verifyingContract: env.eip712VerifyingContract }
   const typed = attestRequestTypedData(fields)
   onProgress?.('sign once to prove membership here for 30 days (no gas)…')
-  const sigHex = (await wallet.signTypedData({
-    domain: typed.domain as unknown as Record<string, unknown>,
-    types: typed.types as unknown as Record<string, unknown[]>,
-    primaryType: typed.primaryType,
-    message: typed.message as unknown as Record<string, unknown>,
-  })).toLowerCase().replace(/^0x/, '')
+  let sigHex: string
+  try {
+    sigHex = (await signTypedDataOnChain(wallet, {
+      domain: typed.domain as unknown as Record<string, unknown>,
+      types: typed.types as unknown as Record<string, unknown[]>,
+      primaryType: typed.primaryType,
+      message: typed.message as unknown as Record<string, unknown>,
+    })).toLowerCase().replace(/^0x/, '')
+  } catch (e) {
+    throw new Error(`signature rejected: ${e instanceof Error ? e.message : String(e)}`)
+  }
   if (!/^[0-9a-f]{130}$/.test(sigHex)) throw new Error('wallet returned a signature that is not 65 bytes')
   const sig = hexToBytes(sigHex)
   if (sig[64] === 0 || sig[64] === 1) sig[64] = (sig[64] as number) + 27
