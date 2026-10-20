@@ -42,6 +42,12 @@ export interface Config {
   readonly idleLeaveS?: number
 }
 
+const turnSchema = z.object({
+  urls: z.array(z.string()).required(),
+  username: z.string(),
+  credential: z.string(),
+})
+
 export const Config: z<Config> = z.object({
   wallet: z.string().required(),
   storePath: z.string(),
@@ -52,7 +58,12 @@ export const Config: z<Config> = z.object({
   eip712ChainId: z.number().default(1),
   eip712VerifyingContract: z.string().default('0x0000000000000000000000000000000000000000'),
   nostrRelays: z.array(z.string()),
-  turn: z.object({ urls: z.array(z.string()).required(), username: z.string(), credential: z.string() }),
+  // A bare z.object() still descends into required inners when the key is
+  // absent; the union keeps the whole block truly optional while validating
+  // its shape when present. The cast restores the plain (non-required) mode
+  // tag the `z<Config>` generic maps to an optional prop; runtime behavior
+  // is pinned by tests/votes.spec.ts.
+  turn: z.union([turnSchema, z.const(undefined)]) as unknown as typeof turnSchema,
   watch: z.array(z.string()).default([]),
   maxRooms: z.number().default(8),
   idleLeaveS: z.number().default(1800),

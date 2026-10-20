@@ -4,7 +4,7 @@
  * real secp256k1 key. Two agents vote in one subreddit and must agree.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ed25519 } from '@noble/curves/ed25519.js'
 import { addressOfPrivateKey, attestPreimage, bytesToHex, chainVariantOf, epochOf, memberCidHash, parseGate, randomPrivateKey, signDigest, type MemberReceipt } from '@redhaven/vote-core'
 import type { AttestCanister, AttestHoldingResult } from '@redhaven/vote-core/canister'
@@ -12,6 +12,10 @@ import type { AttestHoldingRequest } from '@redhaven/vote-core'
 import { VoteRuntime, internals, type BoardIndexPage, type BoardSeam, type VoteRuntimeOpts, type WalletSeam } from '../src/runtime.ts'
 import { MemoryStore } from '../src/store.ts'
 import type { RoomHandle } from '../src/transport.ts'
+
+// The plugin entry defines tools via the framework; stub that seam so the
+// config schema can be exercised without the whole harness installed.
+vi.mock('@deepseek-ai/dsh-tools', () => ({ defineTool: (..._args: unknown[]) => ({}) }))
 
 const GATE = 'gate:8453:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913:1'
 const T1 = `0x${'a1'.repeat(32)}`
@@ -248,5 +252,18 @@ describe('dsh-votes runtime', () => {
     await expect(rt.resolveGate('gate:8453:0xABC:1')).rejects.toThrow(/gate must be/)
     await expect(rt.cast({ subreddit: GATE, target: 'nope', dir: 1 })).rejects.toThrow(/entity key/)
     await rt.close()
+  })
+})
+
+describe('dsh-votes plugin config', () => {
+  it('accepts a wallet-only config: store, relays and TURN stay optional', async () => {
+    const { Config } = await import('../src/index.ts')
+    const parsed = await Config['~standard'].validate({ wallet: 'agent' })
+    expect(parsed.issues ?? []).toEqual([])
+    if (!parsed.issues) {
+      expect(parsed.value.watch).toEqual([])
+      expect(parsed.value.maxRooms).toBe(8)
+      expect(parsed.value.turn).toBeUndefined()
+    }
   })
 })
