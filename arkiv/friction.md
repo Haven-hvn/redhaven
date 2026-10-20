@@ -28,6 +28,13 @@ or signing prompt happened. We hit this because redhaven copied the write path f
 [`apps/web/src/lib/post.ts`](../apps/web/src/lib/post.ts) (`arkivWallet`, the `createEntity missing`
 throw).
 
+**Repro (SDK 0.8.1, viem 2.57.0).** Build the write client with viem's `createWalletClient` and call
+`createEntity`: no prompt, no tx. The guard in `arkivWallet` throws `createEntity missing`; the full
+trace is in shared log §1.
+
+**Ask.** The Arkiv-extended factory should be the only way to get a write client, or a plain viem
+client should throw a named error instead of doing nothing.
+
 ---
 
 ## 2. A receipt can be *recovered from Arkiv* — but only as stored attributes + payloads
@@ -44,6 +51,10 @@ primitive, and it costs several charged calls the first time.
 behaviour: [`apps/web/src/lib/receipt.ts`](../apps/web/src/lib/receipt.ts) (`restoreReceipt`,
 `pickRestorableReceipt`).
 
+**Repro (SDK 0.8.1).** Clear `localStorage` (or open a private window), connect a wallet that has posted
+on the board, and post again: the client restores `attn` from `$owner` rows with several charged reads.
+A wallet that has never posted has no row to restore from, so it must mint.
+
 **Ask.** A documented, first-class "find an entity I wrote earlier by `$owner` + `grp`" pattern with a
 payload selection; it is a common need for any client that must not ask its user to re-sign.
 
@@ -56,6 +67,9 @@ payload selection; it is a common need for any client that must not ask its user
 **Actual.** It returns **zero rows with no error**. For redhaven this matters twice: gates use a
 `u256` threshold (`1e18` does not fit `i32`), and comment routing compares `root_ref`/`parent_ref`
 entity keys as lowercase `str`.
+
+**Repro (SDK 0.8.1).** Query a `u256` `gate_threshold` with an `i32` predicate (or write `1e18` as
+`i32`): the query returns zero rows with no error. The full repro is in shared log §4.
 
 **Fix.** Every value is built through its constructor (`str()`, `i32()`, `u256()`) and keys are
 normalised at the boundary, in the shared codec:
@@ -77,6 +91,11 @@ the profile page resolved by gate, the subreddit page resolved by slug, and the 
 [`apps/web/tests/subreddit.spec.ts`](../apps/web/tests/subreddit.spec.ts) pins the regression,
 [`apps/web/src/lib/subreddit.ts`](../apps/web/src/lib/subreddit.ts) (`liveBoardBySlug`).
 
+**Repro (SDK 0.8.1).** Open `/u/` for a submission under a def-less gate, then open
+`/r/?s=<the implicit slug>` from that page. Before the fix the profile resolves by gate and the
+subreddit by slug, and the second says the subreddit does not exist.
+[`apps/web/tests/subreddit.spec.ts`](../apps/web/tests/subreddit.spec.ts) pins it.
+
 **Ask / observation.** An implicit identity that is not unique is a footgun. A documented canonical
 form for a gate (`gate:<chainId>:<token>:<threshold>` is what the vote layer already uses) would remove
 the ambiguity; the slug is presentation, not identity.
@@ -97,6 +116,10 @@ headers, `limit` + `cursor` with a 100-row scan cap, batched `$key` payload read
 [`apps/web/src/lib/arkiv.ts`](../apps/web/src/lib/arkiv.ts),
 [`apps/web/src/hooks/useSubreddit.ts`](../apps/web/src/hooks/useSubreddit.ts).
 
+**Repro (SDK 0.8.1, viem 2.57.0).** From one IP, load the front page, a subreddit, and restore a receipt
+in a fresh browser. That is enough charged calls to hit ~100/hour and get 429; with viem's default
+transport the page can sit for `Retry-After` minutes. Full arithmetic in shared log §3.
+
 **Ask.** Fail fast on the HTTP surface like the WebSocket one, expose remaining quota/reset in the 429,
 and say in the 429 that an access key raises the quota.
 
@@ -109,6 +132,10 @@ and say in the 429 that an access key raises the quota.
 **Actual.** Lifetimes are whole 2 s blocks via `ExpirationTime.fromBlocks`, so durations must be even
 multiples; and a comment clamped to its submission's remaining life needs the current block height
 (`arkiv_getBlockTiming`) and the root's `$expiresAt`, both reads.
+
+**Repro (SDK 0.8.1).** Create a submission with a short BTL, then comment: `clampPostTtl` caps the
+comment to the root's `$expiresAt`. Ask for an odd seconds TTL (7 s) and `toBlocks` rejects it; 8 s
+becomes 4 blocks. Compare `$expiresAt` with `arkiv_getBlockTiming`.
 
 **Fix.** `toBlocks(seconds)` + `clampPostTtl`, and `$expiresAt` is filtered against the current block:
 [`apps/web/src/lib/post.ts`](../apps/web/src/lib/post.ts),
@@ -130,6 +157,10 @@ random picks), and it must not disturb the canonical bump order other Haven clie
 readers agree; block heights become wall time through a `BlockClock`:
 [`apps/web/src/lib/time.ts`](../apps/web/src/lib/time.ts),
 [`vote-core rank`](../packages/vote-core/src/rank.ts).
+
+**Repro (SDK 0.8.1).** Query a subreddit and observe newest-first; `orderBy` does not exist, and
+`$createdAt` is not filterable. Then request hot/new/top in two clients: only the client-side fold over
+the same rows, with entity-key tie-breaks, agrees.
 
 **Ask.** Document that ordering is client-side by design and which system attributes are filterable.
 
