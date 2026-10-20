@@ -17,7 +17,7 @@ jobs:
       FAIRHAVEN_REPO_URL: ${{ vars.FAIRHAVEN_REPO_URL }}
       REDHAVEN_VENDOR_STRICT: '1'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check secrets and variables
         run: |
           if [ -z "${{ secrets.PINME_APPKEY }}" ]; then
