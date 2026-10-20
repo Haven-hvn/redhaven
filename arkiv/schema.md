@@ -2,7 +2,8 @@
 
 redhaven is a Haven-protocol client that looks like reddit: **subreddits are token gates**,
 submissions and comments are **Arkiv entities every Haven app can read**, and votes are an off-chain
-layer exchanged between readers over WebRTC. There is no backend and no relayer.
+layer exchanged between readers over WebRTC. A submission can carry an encrypted file on Filecoin; the
+Arkiv row is the index. There is no backend and no relayer.
 
 redhaven adds **no new Arkiv entity types**. It reads and writes the shared `haven.board.*` contract
 (Fairhaven's board contract) byte-for-byte, so a redhaven submission is a Fairhaven thread and a
