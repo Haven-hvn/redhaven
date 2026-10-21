@@ -186,7 +186,8 @@ All Arkiv access goes through one browser `EntityStore` with the anonymous-tier 
 Flat **100 units per charged `arkiv_query`**, ~**100 charged calls/hour/IP**. In CI the `ARKIV_API_KEY`
 repo secret is inlined as `NEXT_PUBLIC_ARKIV_API_KEY` and sent as `X-API-KEY` on every read; it is public
 by construction (static export), raises the edge quota, and exposes `Arkiv-Quota-Used-Percent`. It does not
-cover writes, which the poster's wallet signs and sends. The client uses
+cover writes, which the poster's wallet signs and sends. Deploy fails loud if the secret is
+missing or empty, so a keyless anonymous-tier bundle can never ship silently. The client uses
 `retryCount: 0`, in-flight de-dupe, a concurrency cap of 2, a cooldown on `Retry-After`/quota headers,
 `limit` + `cursor` paging with a 100-row scan cap, one batched `$key` query per 50 keys, the free
 entity-count probe (60 s, paused on hidden tabs), a WebSocket subscription, and a localStorage query
