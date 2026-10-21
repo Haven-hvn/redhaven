@@ -39,6 +39,7 @@ import {
   type ThreadRecord,
 } from '@fairhaven/board-core'
 import { arkivStore, watchEntities } from '@/lib/arkiv'
+import { isBoardRow, keyTouchesSubmission, openSubmissionOf, rowsIncludeDef, rowsTouchSubmission, type OpenSubmission } from '@/lib/watch'
 import { liveBoardBySlug } from '@/lib/subreddit'
 import { membership } from '@/lib/evm'
 import { clockNow, verifyAuthors } from '@/lib/receipt'
@@ -68,32 +69,39 @@ const watchSubs = new Set<(e: { type: string; entityKey: string }) => void>()
 let watchStop: (() => void) | undefined
 let watchStarting = false
 
-/** Shared WebSocket entity watch: deletions applied to cached folds, creations fetched in one batched read. */
+/** Shared WebSocket entity watch: deletions applied to cached folds, creations fetched in one batched read. The watch is chain-wide, so reloads are relevance-gated (lib/watch): a foreign burst costs no charged query. */
 export function useEntityWatch() {
   const qc = useQueryClient()
   useEffect(() => {
     const pending = new Set<string>()
     let timer: ReturnType<typeof setTimeout> | undefined
+    const openSubmissions = (): OpenSubmission[] =>
+      qc
+        .getQueriesData<{ root: ThreadRecord; replies: PostRecord[] }>({ queryKey: ['submission'] })
+        .map(([, d]) => openSubmissionOf(d))
+        .filter((o): o is OpenSubmission => o !== undefined)
     const flush = async () => {
       const keys = [...pending]
       pending.clear()
       if (keys.length === 0) return
+      let rows: RawEntity[] = []
       try {
-        const rows = (await arkivStore.getMany?.(keys)) ?? []
+        rows = (await arkivStore.getMany?.(keys)) ?? []
         for (const raw of rows) {
+          if (!isBoardRow(raw)) continue
           qc.setQueriesData<GlobalIndex>({ queryKey: ['frontpage'] }, (old) => (old ? applyEntityToGlobalIndex(old, raw) : old))
           qc.setQueriesData<BoardIndex>({ queryKey: ['listing'] }, (old) => (old ? applyEntityToBoardIndex(old, raw) : old))
         }
       } catch { /* probe fallback */ }
-      void qc.invalidateQueries({ queryKey: ['submission'] })
-      void qc.invalidateQueries({ queryKey: ['subreddits'] })
+      if (rowsIncludeDef(rows)) void qc.invalidateQueries({ queryKey: ['subreddits'] })
+      if (rowsTouchSubmission(rows, openSubmissions())) void qc.invalidateQueries({ queryKey: ['submission'] })
     }
     const sub = (e: { type: string; entityKey: string }) => {
       if (typeof document !== 'undefined' && document.hidden) return
       if (e.type === 'EntityDeleted') {
         qc.setQueriesData<GlobalIndex>({ queryKey: ['frontpage'] }, (old) => (old ? removeEntityFromGlobalIndex(old, e.entityKey) : old))
         qc.setQueriesData<BoardIndex>({ queryKey: ['listing'] }, (old) => (old ? removeEntityFromBoardIndex(old, e.entityKey) : old))
-        void qc.invalidateQueries({ queryKey: ['submission'] })
+        if (keyTouchesSubmission(e.entityKey, openSubmissions())) void qc.invalidateQueries({ queryKey: ['submission'] })
         return
       }
       pending.add(e.entityKey)
