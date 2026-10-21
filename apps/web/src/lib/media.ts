@@ -13,6 +13,7 @@
 
 import { ENUM_TO_MIME, openAny, type MediaField, type ThreadRecord } from '@fairhaven/board-core'
 import { aesKeyForGate, hasUnlocked, parseGateJson } from './aol'
+import { fetchResumable, withRetry } from './retrieve'
 import { env } from './env'
 
 export type MediaPhase = { s: 'fetching'; received: number; total?: number } | { s: 'opening'; chunk: number; chunks: number }
@@ -78,28 +79,15 @@ export function foreignHref(thread: ThreadRecord): string {
 
 async function fetchClear(fcid: string, declared: number | undefined, onPhase: (p: MediaPhase) => void, signal: AbortSignal): Promise<Uint8Array> {
   if (!env.ipfsGateway) throw new Error('clear media lives on IPFS — open it in haven-dapp')
-  const res = await fetch(`${env.ipfsGateway}/ipfs/${fcid}`, { signal })
-  if (!res.ok || !res.body) throw new Error(`gateway ${res.status}`)
-  const len = Number(res.headers.get('content-length'))
-  const total = Number.isFinite(len) && len > 0 ? len : declared
-  const reader = res.body.getReader()
-  const parts: Uint8Array[] = []
-  let received = 0
-  onPhase({ s: 'fetching', received, ...(total ? { total } : {}) })
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) break
-    parts.push(value)
-    received += value.length
-    onPhase({ s: 'fetching', received, ...(total ? { total } : {}) })
-  }
-  const out = new Uint8Array(received)
-  let o = 0
-  for (const p of parts) {
-    out.set(p, o)
-    o += p.length
-  }
-  return out
+  // Resumable: a dropped gateway connection resumes mid-file, not from zero.
+  onPhase({ s: 'fetching', received: 0, ...(declared ? { total: declared } : {}) })
+  return fetchResumable(`${env.ipfsGateway}/ipfs/${fcid}`, {
+    signal,
+    onProgress: (received, total) => {
+      const t = total ?? declared
+      onPhase({ s: 'fetching', received, ...(t ? { total: t } : {}) })
+    },
+  })
 }
 
 async function fetchSealed(piece: string, declared: number | undefined, onPhase: (p: MediaPhase) => void, signal: AbortSignal): Promise<Uint8Array> {
@@ -108,7 +96,7 @@ async function fetchSealed(piece: string, declared: number | undefined, onPhase:
   const synapse = Synapse.create({ account: privateKeyToAccount(generatePrivateKey()), source: 'redhaven-web', withCDN: env.synapseEnableCdn })
   onPhase({ s: 'fetching', received: 0, ...(declared ? { total: declared } : {}) })
   if (signal.aborted) throw new DOMException('cancelled', 'AbortError')
-  const bytes = new Uint8Array(await synapse.storage.download({ pieceCid: piece, withCDN: env.synapseEnableCdn }))
+  const bytes = new Uint8Array(await withRetry(() => synapse.storage.download({ pieceCid: piece, withCDN: env.synapseEnableCdn }), { signal, attempts: 2 }))
   if (signal.aborted) throw new DOMException('cancelled', 'AbortError')
   onPhase({ s: 'fetching', received: bytes.length, total: declared ?? bytes.length })
   return bytes

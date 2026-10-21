@@ -16,7 +16,7 @@ import {
   boardOf,
   currentEpoch,
   gateOfRaw,
-  hydrateThreads,
+  hydrateThreadsAcrossBoards,
   implicitSlug,
   loadBoards,
   loadGlobalIndex,
@@ -174,7 +174,7 @@ export function useSubredditFromRoot(rootKey: string | null, enabled: boolean) {
 }
 
 export function useCurrentBlock() {
-  return useQuery({ queryKey: ['block'], queryFn: () => arkivStore.currentBlock(), refetchInterval: 60_000 })
+  return useQuery({ queryKey: ['block'], queryFn: () => arkivStore.currentBlock(), refetchInterval: 60_000, staleTime: 30_000 })
 }
 
 /** One subreddit's live submissions (folded index; ranking happens in the view). */
@@ -230,8 +230,9 @@ export function usePageHydration(items: Array<{ thread: ThreadRecord; sub: Resol
         g.threads.push(i.thread)
         bySub.set(i.sub.ref.slug, g)
       }
-      const hydrated = new Map<string, ThreadRecord>()
-      await Promise.all([...bySub.values()].map(async ({ sub, threads }) => { for (const t of await hydrateThreads(arkivStore, threads, sub.ref)) hydrated.set(t.key, t) }))
+      // One batched $key fetch for the whole page, however many subreddits it spans.
+      const hydrated = await hydrateThreadsAcrossBoards(arkivStore, [...bySub.values()].map(({ sub, threads }) => ({ board: sub.ref, threads })))
+      for (const i of items) if (!hydrated.has(i.thread.key.toLowerCase())) hydrated.set(i.thread.key.toLowerCase(), i.thread)
       const withPayload = items.map((i) => ({ ...i, thread: hydrated.get(i.thread.key) ?? i.thread }))
       const ok = new Set((await verifyAuthors(withPayload.map((i) => i.thread), clockNow(currentBlock), address)).ok.map((t) => t.key))
       return withPayload.filter((i) => ok.has(i.thread.key))
