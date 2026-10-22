@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useAccount } from 'wagmi'
 import { ENUM_TO_MIME, type MediaField, type ThreadRecord } from '@fairhaven/board-core'
-import { canAutoOpen, canOpenNow, foreignHref, getOpened, locatorOf, mediaKind, openMedia, phaseLabel, type MediaPhase, type OpenedMedia } from '@/lib/media'
+import { anyInFlight, canAutoOpen, canOpenNow, foreignHref, getOpened, locatorOf, mediaKind, openMedia, phaseLabel, type MediaPhase, type OpenedMedia } from '@/lib/media'
 import { formatBytes } from '@/lib/post'
 import { parseGateJson, restoreVetKey } from '@/lib/aol'
 import { useSession } from '@/store/session'
@@ -43,6 +43,10 @@ export function MediaView({ thread, media }: { thread: ThreadRecord; media: Medi
   }
 
   useEffect(() => {
+    if (st.s === 'idle' && canOpenNow(thread, media) && canAutoOpen(media) && anyInFlight()) {
+      const id = setInterval(() => { if (!anyInFlight()) { clearInterval(id); start() } }, 800)
+      return () => clearInterval(id)
+    }
     if (st.s === 'idle' && canOpenNow(thread, media) && canAutoOpen(media)) start()
     // Reload path for sealed media: restore a wrapped unlock for this
     // record's epoch, then the version bump re-runs this effect.

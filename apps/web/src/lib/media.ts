@@ -82,6 +82,11 @@ export function describeError(e: unknown): string {
 /** Sealed media at or below this size may auto-open on render; larger files wait for a click. */
 export const AUTO_OPEN_MAX_BYTES = 8 * 1024 * 1024
 
+/** True while any media task is running; auto-open waits its turn. */
+export function anyInFlight(): boolean {
+  return tasks.size > 0
+}
+
 export function canAutoOpen(m: MediaField): boolean {
   return m.piece === undefined || (m.size ?? 0) <= AUTO_OPEN_MAX_BYTES
 }
