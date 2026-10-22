@@ -36,6 +36,12 @@ const CACHE_LIMIT = 200 * 1024 * 1024
 const opened = new Map<string, OpenedMedia>()
 let openedBytes = 0
 const tasks = new Map<string, MediaTask>()
+const sealedCache = new Map<string, Uint8Array>()
+
+/** Sealed bytes as fetched, kept so a failed open retries without re-downloading. */
+export function getSealedCached(locator: string): Uint8Array | undefined {
+  return sealedCache.get(locator)
+}
 
 export function locatorOf(m: MediaField): string {
   return m.piece ?? m.fcid ?? ''
@@ -47,6 +53,7 @@ export function getOpened(locator: string): OpenedMedia | undefined {
 
 /** Drop decrypted bytes (wallet disconnect). */
 export function clearOpened(): void {
+  sealedCache.clear()
   for (const o of opened.values()) URL.revokeObjectURL(o.url)
   opened.clear()
   openedBytes = 0
@@ -128,9 +135,22 @@ export function openMedia(thread: ThreadRecord, m: MediaField): MediaTask {
     if (hit) return hit
     if (m.fcid !== undefined) return remember(locator, await fetchClear(m.fcid, m.size, emit, ctl.signal), mime)
     if (!thread.payload?.gate) throw new Error('sealed media without a gate')
-    const sealed = await fetchSealed(thread, m.piece!, m.size, emit, ctl.signal)
+    let sealed = getSealedCached(locator)
+    if (!sealed) {
+      sealed = await fetchSealed(thread, m.piece!, m.size, emit, ctl.signal)
+      sealedCache.set(locator, sealed)
+    } else {
+      emit({ s: 'fetching', received: sealed.length, total: sealed.length })
+    }
+    emit({ s: 'opening', chunk: 0, chunks: 0 })
     const aesKey = await aesKeyForGate(thread.payload.gate)
-    const plain = await openAny(sealed, aesKey, (p) => emit({ s: 'opening', chunk: p.chunk, chunks: p.chunks }), ctl.signal)
+    let plain: Uint8Array
+    try {
+      plain = await openAny(sealed, aesKey, (p) => emit({ s: 'opening', chunk: p.chunk, chunks: p.chunks }), ctl.signal)
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') throw e
+      throw new Error(`opening failed: ${e instanceof Error ? e.message : String(e)}`)
+    }
     return remember(locator, plain, mime)
   })().finally(() => tasks.delete(locator))
   const task: MediaTask = {
