@@ -73,6 +73,19 @@ function remember(locator: string, bytes: Uint8Array, mime: string): OpenedMedia
   return o
 }
 
+export function describeError(e: unknown): string {
+  if (e instanceof DOMException) return e.message ? `${e.name}: ${e.message}` : e.name
+  if (e instanceof Error) return e.message || e.name
+  return String(e)
+}
+
+/** Sealed media at or below this size may auto-open on render; larger files wait for a click. */
+export const AUTO_OPEN_MAX_BYTES = 8 * 1024 * 1024
+
+export function canAutoOpen(m: MediaField): boolean {
+  return m.piece === undefined || (m.size ?? 0) <= AUTO_OPEN_MAX_BYTES
+}
+
 /** Whether the viewer can open this media right now without any wallet prompt. */
 export function canOpenNow(thread: ThreadRecord, m: MediaField): boolean {
   if (m.fcid !== undefined) return env.ipfsGateway !== ''
@@ -98,7 +111,7 @@ async function fetchClear(fcid: string, declared: number | undefined, onPhase: (
   })
 }
 
-async function fetchSealed(thread: ThreadRecord, piece: string, declared: number | undefined, onPhase: (p: MediaPhase) => void, signal: AbortSignal): Promise<Uint8Array> {
+async function fetchSealed(thread: ThreadRecord, piece: string, declared: number | undefined, onPhase: (p: MediaPhase) => void, signal: AbortSignal, forceStorage = false): Promise<Uint8Array> {
   onPhase({ s: 'fetching', received: 0, ...(declared ? { total: declared } : {}) })
   if (signal.aborted) throw new DOMException('cancelled', 'AbortError')
   const gateChain = thread.payload?.gate ? parseGateJson(thread.payload.gate)?.gate.chain : undefined
@@ -108,6 +121,7 @@ async function fetchSealed(thread: ThreadRecord, piece: string, declared: number
     ...(gateChain ? { gateChain } : {}),
     source: 'redhaven-web',
     withCdn: env.synapseEnableCdn,
+    ...(forceStorage ? { forceStorage: true } : {}),
     signal,
     onProgress: (received, total) => { const tt = declared ?? total; onPhase({ s: 'fetching', received, ...(tt ? { total: tt } : {}) }) },
   })
@@ -144,12 +158,23 @@ export function openMedia(thread: ThreadRecord, m: MediaField): MediaTask {
     }
     emit({ s: 'opening', chunk: 0, chunks: 0 })
     const aesKey = await aesKeyForGate(thread.payload.gate)
+    const tryOpen = (bytes: Uint8Array) => openAny(bytes, aesKey, (p) => emit({ s: 'opening', chunk: p.chunk, chunks: p.chunks }), ctl.signal)
     let plain: Uint8Array
     try {
-      plain = await openAny(sealed, aesKey, (p) => emit({ s: 'opening', chunk: p.chunk, chunks: p.chunks }), ctl.signal)
+      plain = await tryOpen(sealed)
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') throw e
-      throw new Error(`opening failed: ${e instanceof Error ? e.message : String(e)}`)
+      // Resolved-URL bytes can fail the GCM open (bad Range resume, CDN
+      // artifact): one retry via the validating StorageManager download.
+      try {
+        sealedCache.delete(locator)
+        const fresh = await fetchSealed(thread, m.piece!, m.size, emit, ctl.signal, true)
+        sealedCache.set(locator, fresh)
+        plain = await tryOpen(fresh)
+      } catch (e2) {
+        if (e2 instanceof DOMException && e2.name === 'AbortError') throw e2
+        throw new Error(`opening failed: ${describeError(e2)}`)
+      }
     }
     return remember(locator, plain, mime)
   })().finally(() => tasks.delete(locator))
