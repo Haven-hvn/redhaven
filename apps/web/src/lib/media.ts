@@ -13,7 +13,8 @@
 
 import { ENUM_TO_MIME, openAny, type MediaField, type ThreadRecord } from '@fairhaven/board-core'
 import { aesKeyForGate, hasUnlocked, parseGateJson } from './aol'
-import { fetchResumable, withRetry } from './retrieve'
+import { fetchResumable } from './retrieve'
+import { fetchSealedBytes } from './sealed-fetch'
 import { env } from './env'
 
 export type MediaPhase = { s: 'fetching'; received: number; total?: number } | { s: 'opening'; chunk: number; chunks: number }
@@ -90,13 +91,19 @@ async function fetchClear(fcid: string, declared: number | undefined, onPhase: (
   })
 }
 
-async function fetchSealed(piece: string, declared: number | undefined, onPhase: (p: MediaPhase) => void, signal: AbortSignal): Promise<Uint8Array> {
-  const { Synapse } = await import('@filoz/synapse-sdk')
-  const { privateKeyToAccount, generatePrivateKey } = await import('viem/accounts')
-  const synapse = Synapse.create({ account: privateKeyToAccount(generatePrivateKey()), source: 'redhaven-web', withCDN: env.synapseEnableCdn })
+async function fetchSealed(thread: ThreadRecord, piece: string, declared: number | undefined, onPhase: (p: MediaPhase) => void, signal: AbortSignal): Promise<Uint8Array> {
   onPhase({ s: 'fetching', received: 0, ...(declared ? { total: declared } : {}) })
   if (signal.aborted) throw new DOMException('cancelled', 'AbortError')
-  const bytes = new Uint8Array(await withRetry(() => synapse.storage.download({ pieceCid: piece, withCDN: env.synapseEnableCdn }), { signal, attempts: 2 }))
+  const gateChain = thread.payload?.gate ? parseGateJson(thread.payload.gate)?.gate.chain : undefined
+  const bytes = await fetchSealedBytes({
+    piece,
+    owner: thread.owner,
+    ...(gateChain ? { gateChain } : {}),
+    source: 'redhaven-web',
+    withCdn: env.synapseEnableCdn,
+    signal,
+    onProgress: (received, total) => { const tt = declared ?? total; onPhase({ s: 'fetching', received, ...(tt ? { total: tt } : {}) }) },
+  })
   if (signal.aborted) throw new DOMException('cancelled', 'AbortError')
   onPhase({ s: 'fetching', received: bytes.length, total: declared ?? bytes.length })
   return bytes
@@ -121,7 +128,7 @@ export function openMedia(thread: ThreadRecord, m: MediaField): MediaTask {
     if (hit) return hit
     if (m.fcid !== undefined) return remember(locator, await fetchClear(m.fcid, m.size, emit, ctl.signal), mime)
     if (!thread.payload?.gate) throw new Error('sealed media without a gate')
-    const sealed = await fetchSealed(m.piece!, m.size, emit, ctl.signal)
+    const sealed = await fetchSealed(thread, m.piece!, m.size, emit, ctl.signal)
     const aesKey = await aesKeyForGate(thread.payload.gate)
     const plain = await openAny(sealed, aesKey, (p) => emit({ s: 'opening', chunk: p.chunk, chunks: p.chunks }), ctl.signal)
     return remember(locator, plain, mime)
