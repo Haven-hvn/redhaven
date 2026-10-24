@@ -3,8 +3,8 @@ import { addressOfPrivateKey, attestPreimage, bytesToHex, castVote, chainVariant
 
 export const GATE = 'gate:8453:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913:1'
 export const OTHER_GATE = 'gate:1:0x8205ca8ba379fa56bfa5aabd070425d4d8a25ba0:100'
-export const T1 = `0x${'a1'.repeat(32)}`
-export const T2 = `0x${'b2'.repeat(32)}`
+export const T1: string = `0x${'a1'.repeat(32)}`
+export const T2: string = `0x${'b2'.repeat(32)}`
 export const NOW = 1_760_000_000
 
 /**
@@ -12,8 +12,8 @@ export const NOW = 1_760_000_000
  * `mint` is what `attestHolding` returns after it checked the balance itself.
  */
 export class FakeCanister {
-  readonly priv = ed25519.utils.randomSecretKey()
-  readonly key = ed25519.getPublicKey(this.priv)
+  readonly priv: Uint8Array = ed25519.utils.randomSecretKey()
+  readonly key: Uint8Array = ed25519.getPublicKey(this.priv)
 
   mint(gate: string, holder: string, at: number, bal: string): MemberReceipt {
     const g = parseGate(gate)!
@@ -23,8 +23,8 @@ export class FakeCanister {
   }
 }
 
-export const CANISTER = new FakeCanister()
-export const ctx = { gate: GATE, now: NOW, attestKey: CANISTER.key }
+export const CANISTER: FakeCanister = new FakeCanister()
+export const ctx: { gate: string; now: number; attestKey: Uint8Array } = { gate: GATE, now: NOW, attestKey: CANISTER.key }
 
 export interface Holder {
   walletKey: Uint8Array

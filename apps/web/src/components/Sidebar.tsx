@@ -9,9 +9,10 @@ import { useMounted } from '@/hooks/useMounted'
 import { useVoteStatus } from '@/hooks/useVotes'
 import { voteEngine } from '@/lib/votes/engine'
 import { assetInfo, formatUsd } from '@/lib/asset'
+import { tokenIdentity } from '@/lib/evm'
 import { modal } from '@/lib/wallet'
 import { submitPath } from '@/lib/paths'
-import { shortAddress, inFuture, pluralize } from '@/lib/format'
+import { fmtTokenAmount, shortAddress, inFuture, pluralize } from '@/lib/format'
 import { useSession } from '@/store/session'
 import { useState, type ReactNode } from 'react'
 
@@ -40,6 +41,8 @@ export function AboutSubreddit({ sub, submissions }: { sub: ResolvedBoard; submi
   const chainId = VARIANT_TO_EIP155[gate.chain]
   const allowThirdParty = useSession((s) => s.assetInfo)
   const asset = useQuery({ queryKey: ['asset', chainId, gate.tokenAddress, allowThirdParty], queryFn: ({ signal }) => assetInfo(gate, allowThirdParty, signal), staleTime: 60 * 60_000 })
+  const ident = useQuery({ queryKey: ['ident', chainId, gate.tokenAddress], queryFn: () => tokenIdentity(chainId, gate.tokenAddress), staleTime: Infinity })
+  const decimals = ident.data?.decimals
   const me = useMyMembership(gate)
   const { unlocked, epoch, busy, error, unlock, canUnlock } = useUnlock(gate)
   const token = asset.data?.symbol || asset.data?.name || shortAddress(gate.tokenAddress)
@@ -95,7 +98,7 @@ export function AboutSubreddit({ sub, submissions }: { sub: ResolvedBoard; submi
         {sub.def?.about && <p className="about-text">{sub.def.about}</p>}
         {!sub.def && <p className="muted small">No definition yet: this is the gate's implicit subreddit with default settings. <Link href={`/subreddits/create/?gate=gate:${chainId}:${gate.tokenAddress}:${gate.threshold.toString()}`}>define it</Link>.</p>}
         <p className="gate-line">
-          Members hold at least <b>{gate.threshold.toString()} {token}</b>.
+          Members hold at least <b>{fmtTokenAmount(gate.threshold, decimals)} {token}</b>.
         </p>
         {submissions !== undefined && <p className="muted">{pluralize(submissions, 'live submission')}</p>}
         {!mounted ? null : !isConnected ? (
@@ -109,7 +112,7 @@ export function AboutSubreddit({ sub, submissions }: { sub: ResolvedBoard; submi
             <p className="ok">member · sealed content unlocked until {new Date(epochEndUnix(epoch) * 1000).toLocaleDateString()}</p>
           ) : (
             <p>
-              you hold {me.data.balance.toString()} {token}.{' '}
+              you hold {fmtTokenAmount(me.data.balance, decimals)} {token}.{' '}
               <button type="button" onClick={() => void unlock()} disabled={!canUnlock || !!busy}>{busy ?? 'unlock sealed content (30 days)'}</button>
               <br />
               <span className="muted">one signature per month, no gas. Votes need one more signature per week.</span>
@@ -118,7 +121,7 @@ export function AboutSubreddit({ sub, submissions }: { sub: ResolvedBoard; submi
           )
         ) : (
           <p>
-            you hold {me.data?.balance.toString() ?? '0'} of {gate.threshold.toString()} {token}. Until then you can read the public parts and nothing else.
+            you hold {fmtTokenAmount(me.data?.balance ?? 0n, decimals)} of {fmtTokenAmount(gate.threshold, decimals)} {token}. Until then you can read the public parts and nothing else.
           </p>
         )}
         <p className="muted small">

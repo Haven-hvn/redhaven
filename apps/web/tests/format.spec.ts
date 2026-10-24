@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compactNumber, inFuture, pluralize, shortAddress, timeAgo } from '../src/lib/format'
+import { compactNumber, fmtTokenAmount, inFuture, pluralize, shortAddress, timeAgo } from '../src/lib/format'
 import { anchorId, commentsPath, frontpagePath, subredditPath, submitPath, userPath } from '../src/lib/paths'
 import { pageSlice, parsePage } from '../src/lib/ranking'
 
@@ -20,6 +20,25 @@ describe('format', () => {
     expect(inFuture(90)).toBe('in 2 min')
     expect(inFuture(3 * 86400)).toBe('in 3 d')
     expect(compactNumber(12345)).toBe('12.3k')
+  })
+})
+
+describe('fmtTokenAmount', () => {
+  it('formats whole and fractional tokens exactly', () => {
+    expect(fmtTokenAmount(1_000_000_000_000_000_000n, 18)).toBe('1')
+    expect(fmtTokenAmount(1_500_000_000_000_000_000n, 18)).toBe('1.5')
+    expect(fmtTokenAmount(1_999_999_999_999_999_999n, 18)).toBe('1.999999999999999999')
+  })
+  it('expresses sub-precision amounts in token units, never as whole tokens', () => {
+    expect(fmtTokenAmount(1n, 18)).toBe('0.000000000000000001')
+    expect(fmtTokenAmount(1_000_000_000_000_000_001n, 18)).toBe('1.000000000000000001')
+  })
+  it('handles zero, decimals-0 and unknown decimals', () => {
+    expect(fmtTokenAmount(0n, 18)).toBe('0')
+    expect(fmtTokenAmount(300n, 0)).toBe('300')
+    expect(fmtTokenAmount(1_000_000_000_000_000_000n, undefined)).toBe('1000000000000000000')
+    expect(fmtTokenAmount(1n, 256)).toBe('1')
+    expect(fmtTokenAmount(1n, 255)).toBe('0.' + '0'.repeat(254) + '1')
   })
 })
 

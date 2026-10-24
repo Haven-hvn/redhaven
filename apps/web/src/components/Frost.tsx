@@ -6,6 +6,8 @@ import { CHAIN_LABEL, VARIANT_TO_EIP155, frostLinesFor, type BoardGate } from '@
 import { useMyMembership, useUnlock } from '@/hooks/useSubreddit'
 import { useMounted } from '@/hooks/useMounted'
 import { tokenIdentity } from '@/lib/evm'
+import { fmtTokenAmount } from '@/lib/format'
+import { ArrowUpRight, Lock, XMark } from './Icons'
 import { env } from '@/lib/env'
 import { modal } from '@/lib/wallet'
 
@@ -43,7 +45,7 @@ export function useFrostAction(gate: BoardGate, state: 'locked' | 'unlocking' | 
 export function FrostText({ sealedBytes, state, gate, reason, foreignHref }: { sealedBytes: number; state: 'locked' | 'unlocking' | 'failed' | 'foreign'; gate: BoardGate; reason?: string; foreignHref?: string }) {
   const action = useFrostAction(gate, state, reason, foreignHref)
   const lines = frostLinesFor(sealedBytes)
-  const glyph = state === 'failed' ? '✕' : state === 'foreign' ? '↗' : '🔒'
+  const glyph = state === 'failed' ? <XMark /> : state === 'foreign' ? <ArrowUpRight /> : <Lock />
   return (
     <div className="frost-wrap">
       <div

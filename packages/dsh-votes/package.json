@@ -39,15 +39,15 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@deepseek-ai/schemastery": "~3.18.5-alpha.1",
+    "@deepseek-ai/schemastery": "~3.18.5-alpha.2",
     "@redhaven/vote-core": "workspace:*",
     "trystero": "0.26.0",
-    "werift": "0.25.1",
-    "@icp-sdk/core": "6.1.0"
+    "werift": "0.25.2",
+    "@icp-sdk/core": "6.1.1"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "~4.0.5-alpha.1",
-    "@deepseek-ai/dsh-tools": "0.2.1-alpha.1",
+    "@deepseek-ai/cordis": "~4.0.5-alpha.2",
+    "@deepseek-ai/dsh-tools": "0.2.1-alpha.5",
     "dsh-wallet": "=0.1.0",
     "dsh-board": "=0.1.0"
   },
@@ -60,10 +60,10 @@
     }
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "~4.0.5-alpha.1",
-    "@deepseek-ai/dsh-tools": "=0.2.1-alpha.1",
-    "tsdown": "0.23.0",
+    "@deepseek-ai/cordis": "~4.0.5-alpha.2",
+    "@deepseek-ai/dsh-tools": "0.2.1-alpha.5",
+    "tsdown": "0.23.2",
     "typescript": "7.0.2",
-    "vitest": "5.0.2"
+    "vitest": "5.0.5"
   }
 }

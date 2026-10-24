@@ -117,9 +117,15 @@ export interface AttestRequestFields {
 }
 
 /** What a browser wallet signs (`signTypedData`). Same bytes as `attestRequestDigest`. */
-export function attestRequestTypedData(f: AttestRequestFields) {
+export interface AttestRequestTypedData {
+  domain: { name: string; chainId: bigint; verifyingContract: `0x${string}` }
+  types: typeof ATTEST_REQUEST_TYPES
+  primaryType: 'AttestRequest'
+  message: { evmAddress: string; cidHash: `0x${string}`; nonce: bigint }
+}
+export function attestRequestTypedData(f: AttestRequestFields): AttestRequestTypedData {
   return {
-    domain: { name: AOL_EIP712_NAME, chainId: f.eip712ChainId, verifyingContract: f.verifyingContract },
+    domain: { name: AOL_EIP712_NAME, chainId: f.eip712ChainId, verifyingContract: f.verifyingContract as `0x${string}` },
     types: ATTEST_REQUEST_TYPES,
     primaryType: 'AttestRequest' as const,
     message: { evmAddress: f.holder, cidHash: `0x${memberCidHash(f.gate, f.epoch)}` as `0x${string}`, nonce: BigInt(f.nonce) },
