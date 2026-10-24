@@ -9,13 +9,21 @@ on:
 permissions:
   contents: read
 
-# Only actions/checkout is used: the org's Actions policy does not resolve marketplace
-# setup-* actions. pnpm comes from corepack; Node from the runner image.
+# actions/setup-node pins the exact Node version (also in .node-version and
+# the package.json engines fields); pnpm comes from corepack.
 jobs:
   vote-core:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '26.12.1'
+      - name: Verify Node.js version
+        run: |
+          node --version
+          node -e "if (process.versions.node !== '26.12.1') process.exit(1)"
       - name: pnpm via corepack
         run: corepack enable && corepack prepare pnpm@11 --activate
       - name: Install (workspace + packages)
@@ -38,7 +46,15 @@ jobs:
       FAIRHAVEN_REPO_URL: ${{ vars.FAIRHAVEN_REPO_URL }}
       REDHAVEN_VENDOR_STRICT: '1'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '26.12.1'
+      - name: Verify Node.js version
+        run: |
+          node --version
+          node -e "if (process.versions.node !== '26.12.1') process.exit(1)"
       - name: Require FAIRHAVEN_REPO_URL
         run: |
           if [ -z "$FAIRHAVEN_REPO_URL" ]; then
