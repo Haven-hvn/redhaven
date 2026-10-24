@@ -18,6 +18,8 @@
     "verbatimModuleSyntax": false,
     "resolveJsonModule": true,
     "noEmit": true,
+    "isolatedDeclarations": true,
+    "declaration": true,
     "types": ["node"]
   }
 }

@@ -4,10 +4,10 @@ import { bytesToHex, hexToBytes, randomBytes, utf8ToBytes } from '@noble/hashes/
 
 export { bytesToHex, hexToBytes, randomBytes, utf8ToBytes }
 
-export const ADDR_RE = /^0x[0-9a-f]{40}$/
-export const KEY_RE = /^0x[0-9a-f]{64}$/
-export const SIG_RE = /^0x[0-9a-f]{130}$/
-export const GATE_RE = /^gate:(\d{1,10}):(0x[0-9a-f]{40}):(\d{1,78})$/
+export const ADDR_RE: RegExp = /^0x[0-9a-f]{40}$/
+export const KEY_RE: RegExp = /^0x[0-9a-f]{64}$/
+export const SIG_RE: RegExp = /^0x[0-9a-f]{130}$/
+export const GATE_RE: RegExp = /^gate:(\d{1,10}):(0x[0-9a-f]{40}):(\d{1,78})$/
 
 export function strip0x(h: string): string {
   return h.startsWith('0x') || h.startsWith('0X') ? h.slice(2) : h

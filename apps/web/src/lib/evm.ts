@@ -51,6 +51,7 @@ export const membership = new MembershipCache({ balanceOf, balancesOf }, { store
 export interface TokenIdentity {
   symbol?: string
   name?: string
+  decimals?: number
 }
 
 /** Best-effort ERC-20/721 symbol and name for display. Never throws. */
@@ -64,12 +65,14 @@ export async function tokenIdentity(chainId: number, token: string): Promise<Tok
     const abi = [
       { type: 'function', name: 'symbol', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
       { type: 'function', name: 'name', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
+      { type: 'function', name: 'decimals', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint8' }] },
     ] as const
-    const [symbol, name] = await Promise.all([
+    const [symbol, name, decimals] = await Promise.all([
       client.readContract({ address, abi, functionName: 'symbol' }).catch(() => undefined),
       client.readContract({ address, abi, functionName: 'name' }).catch(() => undefined),
+      client.readContract({ address, abi, functionName: 'decimals' }).catch(() => undefined),
     ])
-    return { ...(typeof symbol === 'string' && symbol ? { symbol } : {}), ...(typeof name === 'string' && name ? { name } : {}) }
+    return { ...(typeof symbol === 'string' && symbol ? { symbol } : {}), ...(typeof name === 'string' && name ? { name } : {}), ...(typeof decimals === 'number' ? { decimals } : {}) }
   } catch {
     return {}
   }

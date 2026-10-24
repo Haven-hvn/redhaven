@@ -15,15 +15,18 @@
   "devDependencies": {
     "@noble/curves": "2.4.0",
     "@noble/hashes": "2.4.0",
-    "@types/node": "26.6.3",
-    "tsdown": "0.23.0",
+    "@types/node": "26.6.5",
+    "tsdown": "0.23.2",
     "typescript": "7.0.2",
-    "vite": "^7.0.0",
-    "vitest": "5.0.2"
+    "vite": "^8.3.5",
+    "vitest": "5.0.5"
   },
   "pnpm": {
     "ignoredBuiltDependencies": [
       "@reown/appkit"
     ]
+  },
+  "engines": {
+    "node": "26.12.1"
   }
 }

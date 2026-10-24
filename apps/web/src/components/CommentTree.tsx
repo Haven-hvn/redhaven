@@ -1,4 +1,5 @@
 'use client'
+import { Lock } from './Icons'
 
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
@@ -70,7 +71,7 @@ function PendingComment({ w }: { w: PendingWrite }) {
     <div className="comment pending">
       <div className="entry">
         <p className="tagline"><span className="author">you</span> · {label}</p>
-        <div className="md">{w.sealedText ? '🔒 (sealed)' : w.text}</div>
+        <div className="md">{w.sealedText ? <><Lock /> (sealed)</> : w.text}</div>
       </div>
     </div>
   )
