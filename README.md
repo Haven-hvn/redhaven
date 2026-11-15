@@ -38,6 +38,11 @@ pnpm web:dev
 CI requires the repository variable `FAIRHAVEN_REPO_URL` (Fairhaven's canonical origin was
 not confirmed when this was written, so it is not hardcoded).
 
+`ensure-vendor.mjs` also installs `vendor/fairhaven/packages/board-core`'s runtime deps.
+That includes `viem`, which `@arkiv-network/sdk` 1.x imports directly — it is a required
+peer that `npm install --legacy-peer-deps` will not pull in on its own, so the script
+reinstalls board-core deps whenever `node_modules/viem` is missing next to the SDK.
+
 Companion Web3 agent https://github.com/Haven-hvn/deepseek-harness-web3-agent-stack
 
 ## Routes
