@@ -23,7 +23,7 @@
     "@noble/hashes": "2.4.0",
     "@react-native-async-storage/async-storage": "3.1.1",
     "@redhaven/vote-core": "workspace:*",
-    "@reown/appkit": "2.0.0-wagmi-3.0",
+    "@reown/appkit": "2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0",
     "@reown/appkit-adapter-wagmi": "2.0.0-wagmi-3.0",
     "@tanstack/react-query": "5.104.5",
     "@wagmi/connectors": "8.2.2",
