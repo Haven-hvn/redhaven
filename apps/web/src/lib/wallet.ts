@@ -11,7 +11,7 @@ import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
 import { mainnet, base, optimism, arbitrum, sepolia } from '@reown/appkit/networks'
 import type { AppKitNetwork } from '@reown/appkit/networks'
 import { createAppKit } from '@reown/appkit/react'
-import { rabdi } from '@arkiv-network/sdk/chains'
+import { localhost, rabdi } from '@arkiv-network/sdk/chains'
 import { env } from './env'
 
 const localArkiv = env.arkivRpcUrl.includes('localhost') || env.arkivRpcUrl.includes('127.0.0.1')

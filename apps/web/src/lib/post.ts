@@ -15,6 +15,7 @@ import { env } from './env'
 import { ensureReceipt, gateSpecOf } from './receipt'
 import type { WalletClientLike } from './aol'
 import type { MemberReceipt } from '@redhaven/vote-core'
+import type { Chain } from 'viem'
 
 export interface BrowserWallet {
   account: { address: string }
@@ -68,11 +69,11 @@ async function withWalletTimeout<T>(p: Promise<T>, what: string): Promise<T> {
   }
 }
 
-async function arkivChain(): Promise<never> {
+async function arkivChain(): Promise<Chain> {
   const chains = await import('@arkiv-network/sdk/chains')
   const local = env.arkivRpcUrl.includes('localhost') || env.arkivRpcUrl.includes('127.0.0.1')
   // rabdi() embeds the access key in its RPC URLs; "" selects the public endpoint.
-  return (local ? (chains as any).localhost : (chains as any).rabdi({ accessKey: env.arkivApiKey })) as never
+  return (local ? chains.localhost : chains.rabdi({ accessKey: env.arkivApiKey })) as Chain
 }
 
 async function arkivWallet(wallet: BrowserWallet, onProgress?: ProgressFn) {
@@ -131,11 +132,11 @@ async function arkivWallet(wallet: BrowserWallet, onProgress?: ProgressFn) {
   const client = createWalletClient({ account: address, chain, transport: custom(provider) } as never)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if (typeof (client as any).createEntity !== 'function') throw new Error('Arkiv wallet client unavailable (createEntity missing)')
-  return { client, ExpirationTime, restoreNetwork }
+  return { client, ExpirationTime, restoreNetwork, BOARD_SCHEMA }
 }
 
 async function sendWrite(wallet: BrowserWallet, w: EntityWrite, onProgress?: ProgressFn): Promise<{ key: string; txHash: string }> {
-  const { client, ExpirationTime, restoreNetwork } = await arkivWallet(wallet, onProgress)
+  const { client, ExpirationTime, restoreNetwork, BOARD_SCHEMA } = await arkivWallet(wallet, onProgress)
   try {
     // 1.x column inputs take bare values for str/i32/u256/bool and
     // Uint8Array for bytes — the schema constructor does the tagging.

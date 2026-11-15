@@ -139,7 +139,7 @@ async function query(where: WhereClause, opts: QueryOptions = {}): Promise<Query
     let b = c.select(selection(opts.payload === true))
     // $key predicates need the `key` type — a bare string predicates as `str` and silently misses.
     const clauses = where.map(([k, v]) => {
-      const pred = (x: unknown) => eq(k, (k === '$key' ? keyAttr(String(x)) : x) as never)
+      const pred = (x: unknown) => eq(k, (k === '$key' ? keyAttr(String(x) as `0x${string}`) : x) as never)
       return Array.isArray(v) ? or(v.map(pred)) : pred(v)
     })
     b = b.where(clauses.length === 1 ? clauses[0] : and(clauses)).limit(opts.limit ?? 100)
@@ -159,7 +159,7 @@ async function getMany(keys: string[], opts: { payload?: boolean } = {}): Promis
     const selection = { $key: true, $owner: true, $createdAt: true, $expiresAt: true, $attributes: true, payload: true }
     const res = await c
       .select(selection)
-      .where(or(keys.map((k) => eq('$key', keyAttr(k) as never))))
+      .where(or(keys.map((k) => eq('$key', keyAttr(k as `0x${string}`) as never))))
       .limit(Math.max(keys.length, 1))
       .fetch()
     return rows(res)
@@ -173,7 +173,7 @@ async function queryOr(clauses: WhereClause[], opts: QueryOptions = {}): Promise
     const { and, eq, or } = await import('@arkiv-network/sdk/query')
     const { key: keyAttr } = await import('@arkiv-network/sdk/schema')
     const selection = { $key: true, $owner: true, $createdAt: true, $expiresAt: true, $attributes: true, ...(opts.payload === false ? {} : { payload: true }) }
-    const clause = (k: string, v: string | number | readonly string[]) => (k === '$key' ? eq('$key', keyAttr(String(v)) as never) : Array.isArray(v) ? or(v.map((x) => eq(k, x as never))) : eq(k, v as never))
+    const clause = (k: string, v: string | number | readonly string[]) => (k === '$key' ? eq('$key', keyAttr(String(v) as `0x${string}`) as never) : Array.isArray(v) ? or(v.map((x) => eq(k, x as never))) : eq(k, v as never))
     const sets = clauses.map((set) => { const cs = set.map(([k, v]) => clause(k, v)); return cs.length === 1 ? cs[0]! : and(cs) })
     let b = c.select(selection)
     b = b.where(sets.length === 1 ? sets[0] : or(sets)).limit(opts.limit ?? 100)
