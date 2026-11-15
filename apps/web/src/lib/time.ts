@@ -2,7 +2,7 @@
 
 /**
  * Arkiv `createdAt` is a block number. A `BlockClock` turns it into wall time
- * for "N hours ago" and for hot-ranking (2 s blocks on Tiramisu).
+ * for "N hours ago" and for hot-ranking (2 s blocks on Rabdi).
  */
 
 import { blockToUnix, type BlockClock } from '@fairhaven/board-core'

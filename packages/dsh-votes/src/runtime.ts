@@ -170,7 +170,7 @@ interface GateState {
   saveTimer?: ReturnType<typeof setTimeout>
 }
 
-/** Arkiv Tiramisu block time; `createdAt` on records is a block height. */
+/** Arkiv Rabdi block time; `createdAt` on records is a block height. */
 const BLOCK_TIME_S = 2
 const SAVE_DEBOUNCE_MS = 500
 const SYNC_QUIET_MS = 700

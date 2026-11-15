@@ -113,8 +113,8 @@ function isLocal(): boolean {
 
 async function arkivChain(): Promise<never> {
   const chains = await import('@arkiv-network/sdk/chains')
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return ((isLocal() ? (chains as any).localhost : (chains as any).tiramisu) ?? (chains as any).tiramisu) as never
+  // rabdi() embeds the access key in its RPC URLs; "" selects the public endpoint.
+  return (isLocal() ? (chains as any).localhost : (chains as any).rabdi({ accessKey: env.arkivApiKey })) as never
 }
 
 function client(): Promise<ArkivClient> {
@@ -134,8 +134,14 @@ async function query(where: WhereClause, opts: QueryOptions = {}): Promise<Query
   return budgeted(key, async () => {
     const c: ArkivClient = await client()
     const { and, eq, or } = await import('@arkiv-network/sdk/query')
-    let b = c.select({ key: true, owner: true, createdAt: true, expiresAt: true, attributes: true, ...(opts.payload ? { payload: true } : {}) })
-    const clauses = where.map(([k, v]) => (Array.isArray(v) ? or(v.map((x) => eq(k, x as never))) : eq(k, v as never)))
+    const { key: keyAttr } = await import('@arkiv-network/sdk/schema')
+    const selection = (payload: boolean) => ({ $key: true, $owner: true, $createdAt: true, $expiresAt: true, $attributes: true, ...(payload ? { payload: true } : {}) })
+    let b = c.select(selection(opts.payload === true))
+    // $key predicates need the `key` type — a bare string predicates as `str` and silently misses.
+    const clauses = where.map(([k, v]) => {
+      const pred = (x: unknown) => eq(k, (k === '$key' ? keyAttr(String(x)) : x) as never)
+      return Array.isArray(v) ? or(v.map(pred)) : pred(v)
+    })
     b = b.where(clauses.length === 1 ? clauses[0] : and(clauses)).limit(opts.limit ?? 100)
     if (opts.cursor) b = b.cursor(opts.cursor)
     const res = await b.fetch()
@@ -149,10 +155,11 @@ async function getMany(keys: string[], opts: { payload?: boolean } = {}): Promis
   return budgeted(key, async () => {
     const c: ArkivClient = await client()
     const { or, eq } = await import('@arkiv-network/sdk/query')
-    const { key: keyVal } = await import('@arkiv-network/sdk')
+    const { key: keyAttr } = await import('@arkiv-network/sdk/schema')
+    const selection = { $key: true, $owner: true, $createdAt: true, $expiresAt: true, $attributes: true, payload: true }
     const res = await c
-      .select({ key: true, owner: true, createdAt: true, expiresAt: true, attributes: true, payload: true })
-      .where(or(keys.map((k) => eq('$key', keyVal(k as `0x${string}`)))))
+      .select(selection)
+      .where(or(keys.map((k) => eq('$key', keyAttr(k) as never))))
       .limit(Math.max(keys.length, 1))
       .fetch()
     return rows(res)
@@ -164,10 +171,11 @@ async function queryOr(clauses: WhereClause[], opts: QueryOptions = {}): Promise
   return budgeted(key, async () => {
     const c: ArkivClient = await client()
     const { and, eq, or } = await import('@arkiv-network/sdk/query')
-    const { key: keyVal } = await import('@arkiv-network/sdk')
-    const clause = (k: string, v: string | number | readonly string[]) => (k === '$key' ? eq('$key', keyVal(String(v) as `0x${string}`)) : Array.isArray(v) ? or(v.map((x) => eq(k, x as never))) : eq(k, v as never))
+    const { key: keyAttr } = await import('@arkiv-network/sdk/schema')
+    const selection = { $key: true, $owner: true, $createdAt: true, $expiresAt: true, $attributes: true, ...(opts.payload === false ? {} : { payload: true }) }
+    const clause = (k: string, v: string | number | readonly string[]) => (k === '$key' ? eq('$key', keyAttr(String(v)) as never) : Array.isArray(v) ? or(v.map((x) => eq(k, x as never))) : eq(k, v as never))
     const sets = clauses.map((set) => { const cs = set.map(([k, v]) => clause(k, v)); return cs.length === 1 ? cs[0]! : and(cs) })
-    let b = c.select({ key: true, owner: true, createdAt: true, expiresAt: true, attributes: true, ...(opts.payload === false ? {} : { payload: true }) })
+    let b = c.select(selection)
     b = b.where(sets.length === 1 ? sets[0] : or(sets)).limit(opts.limit ?? 100)
     if (opts.cursor) b = b.cursor(opts.cursor)
     const res = await b.fetch()

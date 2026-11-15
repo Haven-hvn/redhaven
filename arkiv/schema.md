@@ -10,10 +10,10 @@ redhaven adds **no new Arkiv entity types**. It reads and writes the shared `hav
 redhaven comment is a Fairhaven reply. This document is scoped to redhaven; the full wire contract is
 in [`Haven-hvn/fairhaven/arkiv/schema.md`](https://github.com/Haven-hvn/fairhaven/blob/main/arkiv/schema.md).
 
-- **Network:** Arkiv Tiramisu testnet · chain id `7738577`
-- **HTTP RPC:** `https://rpc.tiramisu.db-chain.testnet.arkiv.network`
-- **WebSocket RPC:** `wss://rpc.tiramisu.db-chain.testnet.arkiv.network`
-- **SDK:** `@arkiv-network/sdk` `0.8.1` · `viem` `2.57.0` · Next.js `16.3.6`
+- **Network:** Arkiv Rabdi testnet · chain id `7794095`
+- **HTTP RPC:** `https://rpc.rabdi.db-chain.testnet.arkiv.network`
+- **WebSocket RPC:** `wss://rpc.rabdi.db-chain.testnet.arkiv.network`
+- **SDK:** `@arkiv-network/sdk` `1.0.1` · `viem` `2.57.0` · Next.js `16.3.6`
 - **Entity contract:** `0x4400000000000000000000000000000000000044`
 - **Live deployment:** `https://redhaven.pinme.dev/`
 - **Implementation of record:** `@fairhaven/board-core` (vendored, not forked) ·
@@ -139,7 +139,7 @@ JSON, ≤ 128 KiB, `contentType: application/json`, version `1`:
 | `haven.board.thread` (submission) | 14 days |
 | `haven.board.post` (comment) | 7 days, clamped to the submission's remaining life |
 
-Expiry is Arkiv `ExpirationTime.fromBlocks`, at a nominal **2 s/block** on Tiramisu
+Expiry is Arkiv `ExpirationTime.fromBlocks`, at a nominal **2 s/block** on Rabdi
 ([`proof of the same math`](https://github.com/Haven-hvn/fairhaven/blob/main/packages/board-core/src/constants.ts)).
 Comments never outlive their submission. Clients also drop a record whose `$expiresAt` block has
 passed even if a node still returns it. Old text is deleted from the trie at BTL — a hard expiry a CID
@@ -200,7 +200,7 @@ limited, resets in N s", never an empty subreddit.
 
 [`apps/web/src/lib/post.ts`](../apps/web/src/lib/post.ts):
 
-1. Wallet switches to Tiramisu (added via `wallet_addEthereumChain` if unknown); restored after.
+1. Wallet switches to Rabdi (added via `wallet_addEthereumChain` if unknown); restored after.
 2. `board-core`'s `buildThreadWrite` / `buildPostWrite` / `buildDefWrite` build typed attributes
    (`i32` / `str` / `u256`).
 3. Sealed fields are framed and the AES key is IBE-wrapped; media (≤ 25 MB) is pinned to Filecoin via

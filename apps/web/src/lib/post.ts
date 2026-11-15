@@ -59,10 +59,6 @@ async function receiptFor(wallet: BrowserWallet, gate: BoardGate, onProgress?: P
   return ensureReceipt(wallet as unknown as WalletClientLike, gateSpecOf(gate), (note) => { if (note) onProgress?.({ stage: 'attesting', note }) })
 }
 
-function toBlocks(expiresInS: number): number {
-  return Math.max(1, Math.floor(expiresInS / 2))
-}
-
 async function withWalletTimeout<T>(p: Promise<T>, what: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined
   try {
@@ -72,13 +68,18 @@ async function withWalletTimeout<T>(p: Promise<T>, what: string): Promise<T> {
   }
 }
 
+async function arkivChain(): Promise<never> {
+  const chains = await import('@arkiv-network/sdk/chains')
+  const local = env.arkivRpcUrl.includes('localhost') || env.arkivRpcUrl.includes('127.0.0.1')
+  // rabdi() embeds the access key in its RPC URLs; "" selects the public endpoint.
+  return (local ? (chains as any).localhost : (chains as any).rabdi({ accessKey: env.arkivApiKey })) as never
+}
+
 async function arkivWallet(wallet: BrowserWallet, onProgress?: ProgressFn) {
   const { custom } = await import('viem')
-  const chains = await import('@arkiv-network/sdk/chains')
   const { createWalletClient, ExpirationTime } = await import('@arkiv-network/sdk')
-  const local = env.arkivRpcUrl.includes('localhost') || env.arkivRpcUrl.includes('127.0.0.1')
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const chain = ((local ? (chains as any).localhost : (chains as any).tiramisu) ?? (chains as any).tiramisu) as any
+  const { BOARD_SCHEMA } = await import('@fairhaven/board-core')
+  const chain = await arkivChain()
   const address = wallet.account.address as `0x${string}`
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const transport = wallet.transport as any
@@ -136,12 +137,12 @@ async function arkivWallet(wallet: BrowserWallet, onProgress?: ProgressFn) {
 async function sendWrite(wallet: BrowserWallet, w: EntityWrite, onProgress?: ProgressFn): Promise<{ key: string; txHash: string }> {
   const { client, ExpirationTime, restoreNetwork } = await arkivWallet(wallet, onProgress)
   try {
-    const { i32, str, u256 } = await import('@arkiv-network/sdk/attr')
-    const attributes: Record<string, unknown> = {}
-    for (const [k, v] of Object.entries(w.attributes)) attributes[k] = typeof v === 'bigint' ? u256(v) : typeof v === 'number' ? i32(v) : str(v)
+    // 1.x column inputs take bare values for str/i32/u256/bool and
+    // Uint8Array for bytes — the schema constructor does the tagging.
+    const values: Record<string, unknown> = { ...w.attributes, content_type: w.contentType, payload: w.payload }
     onProgress?.({ stage: 'signing' })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const res = await (client as any).createEntity({ payload: w.payload, contentType: w.contentType, attributes, expires: ExpirationTime.fromBlocks(toBlocks(w.expiresIn)) })
+    const res = await (client as any).createEntity(BOARD_SCHEMA, values, { expiration: ExpirationTime.fromSeconds(w.expiresIn) })
     onProgress?.({ stage: 'done' })
     return { key: String(res.entityKey).toLowerCase(), txHash: String(res.txHash) }
   } finally {
