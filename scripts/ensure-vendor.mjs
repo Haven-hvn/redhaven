@@ -83,7 +83,9 @@ for (const t of targets) {
     // (vitest) even under `--omit=dev`. Skipping peer resolution avoids the
     // arborist bug; board-core's only runtime deps have no peers of their own.
     const core = join(dir, 'packages', 'board-core')
-    if (!existsSync(join(core, 'node_modules', '@noble'))) {
+    // viem is a required peer of @arkiv-network/sdk 1.x and a board-core dep;
+    // an install predating it leaves the SDK's viem imports unresolvable.
+    if (!existsSync(join(core, 'node_modules', '@noble')) || !existsSync(join(core, 'node_modules', 'viem'))) {
       console.log('redhaven: installing @fairhaven/board-core dependencies')
       execSync('npm install --no-audit --no-fund --no-package-lock --ignore-scripts --omit=dev --legacy-peer-deps', { cwd: core, stdio: 'inherit' })
     }
