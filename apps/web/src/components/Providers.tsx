@@ -3,14 +3,82 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useEffect, useState, type ReactNode } from 'react'
 import { cookieToInitialState, WagmiProvider, useAccount, type Config } from 'wagmi'
+import { connect, disconnect, getConnection } from '@wagmi/core'
+import { injected } from '@wagmi/connectors'
 import { wagmiConfig } from '@/lib/wallet'
 import { loadPersisted, persistQueryCache } from '@/lib/persist'
 import { forgetKeys } from '@/lib/aol'
 import { clearOpened } from '@/lib/media'
 import { forgetLiveSessions } from '@/lib/votes/sessions'
+import { useSession } from '@/store/session'
 
 function getClientCookies(): string | null {
   return typeof document !== 'undefined' ? document.cookie || null : null
+}
+
+/**
+ * Connects Redhaven to the parent Haven OS runtime (`haven-os:v1`) when
+ * embedded in an iframe (same-origin or cross-site `*.pinme.dev`), sharing
+ * the OS wallet and VetKD epoch keyring with zero extra popups.
+ */
+function HavenOsBridgeSync() {
+  useEffect(() => {
+    let cancelled = false
+    let unsubAccounts: (() => void) | undefined
+    let unsubKeyring: (() => void) | undefined
+
+    ;(async () => {
+      const { registerHavenOsBridge } = await import('haven-aol')
+      const bridge = registerHavenOsBridge({ appId: 'redhaven' })
+      if (!bridge || cancelled) return
+
+      const syncWallet = async (addr: string | null) => {
+        if (cancelled) return
+        const conn = getConnection(wagmiConfig as Config)
+        if (addr) {
+          if (conn.address?.toLowerCase() === addr.toLowerCase()) return
+          const connector = injected({
+            target: () => ({
+              id: 'haven-os-bridge',
+              name: 'Haven OS Shared Wallet',
+              provider: bridge.provider as never,
+            }),
+          })
+          await connect(wagmiConfig as Config, { connector }).catch(() => undefined)
+        } else if (conn.isConnected && conn.connector?.id === 'haven-os-bridge') {
+          forgetKeys()
+          clearOpened()
+          forgetLiveSessions()
+          await disconnect(wagmiConfig as Config).catch(() => undefined)
+        }
+      }
+
+      const welcome = await bridge.waitForWelcome()
+      if (cancelled || !welcome) return
+      if (welcome.wallet.address && !welcome.wallet.watchOnly) {
+        await syncWallet(welcome.wallet.address)
+      }
+      if (welcome.unlockedGates.length > 0) {
+        useSession.getState().bumpUnlock()
+      }
+
+      unsubAccounts = bridge.onEvent('accountsChanged', (accounts) => {
+        const list = Array.isArray(accounts) ? accounts : []
+        const next = typeof list[0] === 'string' ? list[0] : null
+        void syncWallet(next)
+      })
+      unsubKeyring = bridge.onEvent('keyringChanged', () => {
+        useSession.getState().bumpUnlock()
+      })
+    })()
+
+    return () => {
+      cancelled = true
+      unsubAccounts?.()
+      unsubKeyring?.()
+    }
+  }, [])
+  return null
 }
 
 /** Drop every decrypted byte and in-memory key when the wallet goes away or changes. */
@@ -37,6 +105,7 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <WagmiProvider config={wagmiConfig as Config} initialState={initialState}>
       <QueryClientProvider client={qc}>
+        <HavenOsBridgeSync />
         <SecurityCleanup />
         {children}
       </QueryClientProvider>

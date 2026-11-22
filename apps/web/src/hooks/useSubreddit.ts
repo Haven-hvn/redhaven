@@ -43,7 +43,7 @@ import { isBoardRow, keyTouchesSubmission, openSubmissionOf, rowsIncludeDef, row
 import { liveBoardBySlug } from '@/lib/subreddit'
 import { membership } from '@/lib/evm'
 import { clockNow, verifyAuthors } from '@/lib/receipt'
-import { hasUnlocked, openSealedText, parseGateJson, restoreVetKey, unlock, type WalletClientLike } from '@/lib/aol'
+import { hasUnlocked, openSealedText, parseGateJson, restoreFromOsBridge, restoreVetKey, unlock, type WalletClientLike } from '@/lib/aol'
 import { persistedCount } from '@/lib/persist'
 import { useSession } from '@/store/session'
 
@@ -298,6 +298,16 @@ export function useUnlock(gate: BoardGate | undefined) {
   const epoch = currentEpoch()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const unlocked = useMemo(() => (gate ? hasUnlocked(gate, epoch) : false), [gate, epoch, version])
+  useEffect(() => {
+    if (!gate || unlocked) return
+    let cancelled = false
+    void restoreFromOsBridge(gate, epoch).then((ok) => {
+      if (ok && !cancelled) bump()
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [gate, epoch, unlocked, version, bump])
   const run = useCallback(
     async (targetEpoch: number = epoch) => {
       if (!gate || !walletClient) return false
