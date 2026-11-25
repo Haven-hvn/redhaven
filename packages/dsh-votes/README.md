@@ -62,7 +62,7 @@ is in memory and the agent re-syncs from peers after a restart.
   config:
     wallet: agent
     storePath: /data/votes
-    canisterId: gny6k-fqaaa-aaaab-ag3ra-cai
+    canisterId: 3gzy3-kaaaa-aaaan-q6y6q-cai
     icpHost: https://icp-api.io
     # attestPublicKey: <64 hex>
     eip712ChainId: 1

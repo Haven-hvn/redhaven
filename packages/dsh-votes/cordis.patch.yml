@@ -24,7 +24,7 @@
       config:
         wallet: agent
         storePath: /data/votes            # registers, sessions (0600), receipts
-        canisterId: gny6k-fqaaa-aaaab-ag3ra-cai
+        canisterId: 3gzy3-kaaaa-aaaan-q6y6q-cai
         icpHost: https://icp-api.io
         fetchRootKey: false
         # attestPublicKey: <64 hex>       # pin the canister's Ed25519 attestation key; unset = one query per process

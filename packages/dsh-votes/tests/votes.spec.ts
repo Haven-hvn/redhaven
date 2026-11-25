@@ -95,7 +95,7 @@ function fakeWallet(): WalletSeam & { address0: string } {
 
 const OPTS: VoteRuntimeOpts = {
   wallet: 'agent',
-  canisterId: 'gny6k-fqaaa-aaaab-ag3ra-cai',
+  canisterId: '3gzy3-kaaaa-aaaan-q6y6q-cai',
   icpHost: 'https://icp-api.io',
   fetchRootKey: false,
   eip712ChainId: 1n,

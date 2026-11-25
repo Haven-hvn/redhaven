@@ -51,7 +51,7 @@ const turnSchema = z.object({
 export const Config: z<Config> = z.object({
   wallet: z.string().required(),
   storePath: z.string(),
-  canisterId: z.string().default('gny6k-fqaaa-aaaab-ag3ra-cai'),
+  canisterId: z.string().default('3gzy3-kaaaa-aaaan-q6y6q-cai'),
   icpHost: z.string().default('https://icp-api.io'),
   fetchRootKey: z.boolean().default(false),
   attestPublicKey: z.string(),
@@ -101,7 +101,7 @@ export function apply(ctx: Context, config: Config): void {
   const opts: VoteRuntimeOpts = {
     wallet: config.wallet,
     ...(config.storePath !== undefined ? { storePath: config.storePath } : {}),
-    canisterId: config.canisterId ?? 'gny6k-fqaaa-aaaab-ag3ra-cai',
+    canisterId: config.canisterId ?? '3gzy3-kaaaa-aaaan-q6y6q-cai',
     icpHost: config.icpHost ?? 'https://icp-api.io',
     fetchRootKey: config.fetchRootKey ?? false,
     ...(config.attestPublicKey ? { attestPublicKey: config.attestPublicKey } : {}),
