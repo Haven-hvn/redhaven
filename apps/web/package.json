@@ -15,8 +15,8 @@
   },
   "dependencies": {
     "@arkiv-network/sdk": "1.0.1",
-    "@filoz/synapse-core": "^0.11.0",
-    "@filoz/synapse-sdk": "2.0.2",
+    "@filoz/synapse-core": "^0.11.1",
+    "@filoz/synapse-sdk": "3.0.1",
     "@icp-sdk/core": "6.1.1",
     "@icp-sdk/vetkeys": "0.7.0",
     "@noble/curves": "2.4.0",
@@ -32,7 +32,7 @@
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "trystero": "0.26.0",
-    "viem": "2.57.11",
+    "viem": "2.58.6",
     "wagmi": "3.7.9",
     "zustand": "5.0.16"
   },
