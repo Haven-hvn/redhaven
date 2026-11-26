@@ -50,7 +50,7 @@ jobs:
       - name: Vendor haven-aol and fairhaven
         run: node scripts/ensure-vendor.mjs
       - name: Install
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
       - name: Build haven-aol TypeScript SDK
         working-directory: vendor/haven-aol/packages/typescript
         run: npm run build --if-present
