@@ -69,7 +69,7 @@ for (const t of targets) {
     const sdk = join(dir, 'packages', 'typescript')
     if (!existsSync(join(sdk, 'node_modules'))) {
       console.log('redhaven: installing haven-aol TypeScript SDK dependencies')
-      execSync('npm ci --no-audit --no-fund', { cwd: sdk, stdio: 'inherit' })
+      execSync('npm install --no-audit --no-fund', { cwd: sdk, stdio: 'inherit' })
     }
   }
   if (t.name === 'fairhaven') {
