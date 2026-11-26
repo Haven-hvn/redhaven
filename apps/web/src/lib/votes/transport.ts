@@ -8,7 +8,7 @@
  * any later version never mix.
  */
 
-import type { DataPayload, JoinRoomConfig } from 'trystero/nostr'
+import type { DataPayload, JoinRoomConfig } from 'trystero'
 import { ROOM_APP_ID, ROOM_PREFIX, sha256Hex } from '@redhaven/vote-core'
 import { env } from '../env'
 
@@ -33,7 +33,7 @@ function rtcConfig(): RTCConfiguration {
 }
 
 export async function joinGateRoom(gate: string): Promise<RoomHandle> {
-  const { joinRoom } = await import('trystero/nostr')
+  const { joinRoom } = await import('trystero')
   const roomId = roomIdFor(gate)
   const config: JoinRoomConfig = { appId: ROOM_APP_ID, rtcConfig: rtcConfig() }
   // Trystero 0.26 names relay URLs `relayConfig.urls` (top-level `relayUrls` was the pre-0.26 shape).

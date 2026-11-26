@@ -37,7 +37,7 @@ function iceServers(opts: TransportOptions): Array<{ urls: string[]; username?: 
 }
 
 export async function joinGateRoom(gate: string, opts: TransportOptions = {}): Promise<RoomHandle> {
-  const [{ joinRoom }, { RTCPeerConnection }] = await Promise.all([import('trystero/nostr'), import('werift')])
+  const [{ joinRoom }, { RTCPeerConnection }] = await Promise.all([import('trystero'), import('werift')])
   const roomId = roomIdFor(gate)
   const config: Record<string, unknown> = {
     appId: ROOM_APP_ID,
