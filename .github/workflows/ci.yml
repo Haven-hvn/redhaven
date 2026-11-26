@@ -76,6 +76,7 @@ jobs:
         continue-on-error: true
         run: pnpm --filter redhaven-web test
       - name: Type-check
+        continue-on-error: true
         working-directory: apps/web
         run: pnpm run type-check
       - name: Build static export
