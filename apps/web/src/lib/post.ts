@@ -151,14 +151,102 @@ async function sendWrite(wallet: BrowserWallet, w: EntityWrite, onProgress?: Pro
   }
 }
 
-async function pinMedia(bytes: Uint8Array, onProgress?: ProgressFn): Promise<string> {
+async function pinMedia(bytes: Uint8Array, onProgress?: ProgressFn, fileName?: string): Promise<string> {
   const { Synapse } = await import('@filoz/synapse-sdk')
   const { privateKeyToAccount, generatePrivateKey } = await import('viem/accounts')
+  const { osReportTransfer } = await import('./os-media-cache')
+  const transferId = `rh-ul-${Date.now().toString(36)}`
+  const label = fileName || 'Redhaven attachment'
   const synapse = Synapse.create({ account: privateKeyToAccount(generatePrivateKey()), source: 'redhaven-web', withCDN: env.synapseEnableCdn })
   onProgress?.({ stage: 'pinning', uploaded: 0, total: bytes.length })
-  const result = await synapse.storage.upload(bytes)
-  onProgress?.({ stage: 'pinning', uploaded: bytes.length, total: bytes.length })
-  return String(result.pieceCid)
+  osReportTransfer({
+    id: transferId,
+    direction: 'upload',
+    label,
+    from: 'Redhaven',
+    to: 'Filecoin Synapse',
+    loaded: 0,
+    total: bytes.length,
+    status: 'active',
+  })
+  try {
+    const result = await synapse.storage.upload(bytes, {
+      onProgress: (uploadedBytes: number) => {
+        const loaded = typeof uploadedBytes === 'number' ? Math.min(uploadedBytes, bytes.length) : 0
+        onProgress?.({ stage: 'pinning', uploaded: loaded, total: bytes.length })
+        osReportTransfer({
+          id: transferId,
+          direction: 'upload',
+          label,
+          from: 'Redhaven',
+          to: 'Filecoin Synapse',
+          loaded,
+          total: bytes.length,
+          status: 'active',
+        })
+      },
+      onPullProgress: () => {
+        osReportTransfer({
+          id: transferId,
+          direction: 'upload',
+          label,
+          from: 'Redhaven',
+          to: 'Filecoin Synapse',
+          loaded: bytes.length,
+          total: bytes.length,
+          status: 'active',
+          detail: 'Replicating to secondary Filecoin provider…',
+        })
+      },
+      onPiecesAdded: () => {
+        osReportTransfer({
+          id: transferId,
+          direction: 'upload',
+          label,
+          from: 'Redhaven',
+          to: 'Filecoin Synapse',
+          loaded: bytes.length,
+          total: bytes.length,
+          status: 'active',
+          detail: 'Committing piece on-chain…',
+        })
+      },
+      onPiecesConfirmed: () => {
+        osReportTransfer({
+          id: transferId,
+          direction: 'upload',
+          label,
+          from: 'Redhaven',
+          to: 'Filecoin Synapse',
+          loaded: bytes.length,
+          total: bytes.length,
+          status: 'active',
+          detail: 'Confirmed on Filecoin!',
+        })
+      },
+    } as never)
+    onProgress?.({ stage: 'pinning', uploaded: bytes.length, total: bytes.length })
+    osReportTransfer({
+      id: transferId,
+      direction: 'upload',
+      label,
+      from: 'Redhaven',
+      to: 'Filecoin Synapse',
+      loaded: bytes.length,
+      total: bytes.length,
+      status: 'done',
+    })
+    return String(result.pieceCid)
+  } catch (e) {
+    osReportTransfer({
+      id: transferId,
+      direction: 'upload',
+      label,
+      status: 'error',
+      ...(e instanceof Error ? { detail: e.message } : {}),
+    })
+    throw e
+  }
 }
 
 export const MEDIA_LIMIT_BYTES = 25 * 1024 * 1024
@@ -187,7 +275,7 @@ export async function submitThread(a: SubmitArgs): Promise<{ key: string; txHash
     const mimeType = a.file.type || 'application/octet-stream'
     const mime = MIME_TO_ENUM[mimeType] ?? MIME_TO_ENUM[mimeType.split(';')[0]?.trim() ?? ''] ?? 0
     const storedBytes = sealed.mediaBytes ?? fileBytes
-    const locator = await pinMedia(storedBytes, a.onProgress)
+    const locator = await pinMedia(storedBytes, a.onProgress, a.file.name)
     payload.media = { ...(a.sealMedia ? { piece: locator } : { fcid: locator }), mime, size: storedBytes.length, ...(a.file.name ? { name: a.file.name } : {}), sha256: await sha256Hex(storedBytes) }
   }
   const w = buildThreadWrite({ board: a.subreddit.ref.slug, subject: a.subject, gate: a.subreddit.ref.gate, payload, sha256Ct: sealed.sha256Ct, expiresIn: a.subreddit.threadTtlS })
